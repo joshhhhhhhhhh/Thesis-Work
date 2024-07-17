@@ -220,7 +220,7 @@ public class NonDeterministicValues {
                 Term unifiedContext = op.getContext().capply(unifier);
                 try{
                     if(!EvaluateExpression(unifiedContext, state)) {
-                        break;
+                        continue;
                     }
                 } catch (JasonException e){
                     e.printStackTrace();
