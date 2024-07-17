@@ -64,6 +64,65 @@ public class main {
 
     }
 
+    public static void testManyCells(int n) throws ParseException, RevisionFailedException {
+        Set<Literal> init = new HashSet<>();
+        init.add(Literal.parseLiteral("pos(0)"));
+        Set<LogicalFormula> goals = new HashSet<>();
+        List<Term> paramVals = new ArrayList();
+
+        for(int i = 0; i<n; i++){
+            init.add(Literal.parseLiteral("dirty(" + i + ")"));
+            goals.add(ASSyntax.parseFormula("clean(" + i + ")"));
+            goals.add(ASSyntax.parseFormula("not dirty(" + i + ")"));
+            paramVals.add(new NumberTermImpl(i));
+        }
+
+        Map<VarTerm, List<Term>> map = new HashMap<VarTerm, List<Term>>() {{
+            put(new VarTerm("X"), paramVals);
+            //put(new VarTerm("Y"), paramVals);
+        }};
+
+        //System.out.println(init1.toString().substring(1, init1.toString().length()-1));
+
+        List<jason.asSyntax.Plan> operators = new ArrayList<>();
+
+        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X == " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X == 0 <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X \\== 0 & X \\== " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & clean(X) <- dirty(X) & (not clean(X)); None."));
+        operators.add(jason.asSyntax.Plan.parse("+!right : pos(X) & X \\== " + (n-1) + " <- pos(X+1) & not pos(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!left : pos(X) & X \\== 0 <- pos(X-1) & not pos(X)."));
+
+        List<Literal> actions = new ArrayList<>();
+
+        actions.add(Literal.parseLiteral("suck(X)"));
+        actions.add(Literal.parseLiteral("right(X)"));
+        actions.add(Literal.parseLiteral("left(X)"));
+
+        NonDeterministicValues vals = new NonDeterministicValues(map, goals, actions);
+
+        //System.out.println(vals.getActions(null));
+
+
+        //System.out.println(vals.results(operators).results(init, Literal.parseLiteral("suck(0)")));
+
+
+        System.out.println("---------------------------");
+        double start = System.currentTimeMillis();
+        NondeterministicProblem problem = new NondeterministicProblem(
+                init,
+                vals::getActions,
+                vals.results(operators),
+                vals::testGoalFunction);
+        AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
+        Optional plan = search.search(problem);
+        Generator_V2 g = new Generator_V2();
+        PlanLibrary lib = g.generate((Plan) plan.get(), init);
+        //System.out.println(lib);
+
+        //Reducer.reduce(lib);
+    }
+
     private static void testTables() throws ParseException, RevisionFailedException {
 
         double start = System.currentTimeMillis();
@@ -115,7 +174,8 @@ public class main {
 
     public static void main(String[] args) throws ParseException, RevisionFailedException {
 
-        testTables();
+        //testTables();
+        //testManyCells(10);
         //testErraticVacuum();
 
     }
