@@ -60,7 +60,8 @@ public class main {
         Generator_V2 g = new Generator_V2();
         PlanLibrary lib = g.generate((Plan) plan.get(), init1);
         System.out.println(lib);
-        //Reducer.reduce(lib);
+        Reducer.reduce(lib);
+        System.out.println(lib);
 
     }
 
@@ -118,9 +119,9 @@ public class main {
         Optional plan = search.search(problem);
         Generator_V2 g = new Generator_V2();
         PlanLibrary lib = g.generate((Plan) plan.get(), init);
-        //System.out.println(lib);
-
-        //Reducer.reduce(lib);
+        System.out.println(lib);
+        Reducer.reduce(lib);
+        System.out.println(lib);
     }
 
     private static void testTables() throws ParseException, RevisionFailedException {
@@ -175,8 +176,9 @@ public class main {
     public static void main(String[] args) throws ParseException, RevisionFailedException {
 
         //testTables();
-        //testManyCells(10);
+        testManyCells(3);
         //testErraticVacuum();
+
 
     }
 }
