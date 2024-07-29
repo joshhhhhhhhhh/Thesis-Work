@@ -28,8 +28,8 @@ public class Reducer {
                 String originalContext = bodyStrings.get(originalPlanBody).getContext().toString();
                 String newContext = plan.getContext().toString();
                 String updatedContext = "(" + newContext + ") | (" + originalContext + ")";
-                System.out.println(newContext);
-                System.out.println(originalContext);
+                //System.out.println(newContext);
+                //System.out.println(originalContext);
                 library.get(bodyStrings.get(originalPlanBody).getLabel()).setContext(ASSyntax.parseFormula(updatedContext));
                 library.remove(plan.getLabel());
             }
