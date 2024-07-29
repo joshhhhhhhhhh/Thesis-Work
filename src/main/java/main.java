@@ -1,3 +1,4 @@
+import com.opencsv.CSVWriter;
 import core.search.nondeterministic.AndOrSearch;
 import core.search.nondeterministic.NondeterministicProblem;
 import core.search.nondeterministic.Plan;
@@ -7,6 +8,9 @@ import jason.asSyntax.parser.ParseException;
 import org.apache.logging.log4j.core.pattern.LiteralPatternConverter;
 import org.soton.peleus.act.planner.PlannerConverter;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -60,11 +64,12 @@ public class main {
         Generator_V2 g = new Generator_V2();
         PlanLibrary lib = g.generate((Plan) plan.get(), init1);
         System.out.println(lib);
-        //Reducer.reduce(lib);
+        Reducer.reduce(lib);
+        System.out.println(lib);
 
     }
 
-    public static void testManyCells(int n) throws ParseException, RevisionFailedException {
+    public static void testManyCells(int n, CSVWriter writer) throws ParseException, RevisionFailedException {
         Set<Literal> init = new HashSet<>();
         init.add(Literal.parseLiteral("pos(0)"));
         Set<LogicalFormula> goals = new HashSet<>();
@@ -99,6 +104,8 @@ public class main {
         actions.add(Literal.parseLiteral("right(X)"));
         actions.add(Literal.parseLiteral("left(X)"));
 
+        double start = System.currentTimeMillis();
+
         NonDeterministicValues vals = new NonDeterministicValues(map, goals, actions);
 
         //System.out.println(vals.getActions(null));
@@ -107,20 +114,37 @@ public class main {
         //System.out.println(vals.results(operators).results(init, Literal.parseLiteral("suck(0)")));
 
 
-        System.out.println("---------------------------");
-        double start = System.currentTimeMillis();
+        //System.out.println("---------------------------");
+        double afterSetup = System.currentTimeMillis();
+
         NondeterministicProblem problem = new NondeterministicProblem(
                 init,
                 vals::getActions,
                 vals.results(operators),
                 vals::testGoalFunction);
+
+        double afterCreation = System.currentTimeMillis();
+
         AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
         Optional plan = search.search(problem);
+
+        double afterSearch = System.currentTimeMillis();
+
         Generator_V2 g = new Generator_V2();
         PlanLibrary lib = g.generate((Plan) plan.get(), init);
-        //System.out.println(lib);
 
-        //Reducer.reduce(lib);
+        double end = System.currentTimeMillis();
+
+        //System.out.println(lib);
+        int libSize = lib.size();
+        Reducer.reduce(lib);
+        //System.out.println(lib);
+        //[] data = { String.valueOf(n), String.valueOf(libSize),String.valueOf(afterSetup-start) , String.valueOf(afterCreation-afterSetup) , String.valueOf(afterSearch-afterCreation) , String.valueOf(end-afterSearch) };
+        String[] data = { String.valueOf(n), String.valueOf(libSize), String.valueOf(lib.size())};
+
+        writer.writeNext(data);
+
+
     }
 
     private static void testTables() throws ParseException, RevisionFailedException {
@@ -172,11 +196,32 @@ public class main {
         System.out.println(lib);
     }
 
+    public static void testTimings(String[] args) {
+        File file = new File("timingsWithLibSizeBeforeAndAfterReduction.csv");
+        try {
+            FileWriter outputFile = new FileWriter(file);
+            CSVWriter writer = new CSVWriter(outputFile);
+            //String[] header = {"Number of Cells", "Number of Generated Plans","Setup", "Problem Creation", "Search", "Plan Generation"};
+            String[] header = {"Number of Cells", "Number of Generated Plans","Number of Plans after reduction"};
+            writer.writeNext(header);
+
+            int[] rounds = {2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50,60,70,80,90,100,120,140};//,160,180,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000};
+            for(int i=0;i<121;i++){
+                testManyCells(i, writer);
+                System.out.println(i);
+            }
+            writer.close();
+        } catch (IOException | ParseException | RevisionFailedException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) throws ParseException, RevisionFailedException {
 
         //testTables();
-        //testManyCells(10);
+        //testManyCells(3);
         //testErraticVacuum();
+
 
     }
 }

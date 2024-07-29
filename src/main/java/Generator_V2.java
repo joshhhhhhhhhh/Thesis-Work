@@ -2,6 +2,7 @@ import core.search.nondeterministic.Plan;
 import jason.JasonException;
 import jason.asSemantics.TransitionSystem;
 import jason.asSyntax.*;
+import jason.asSyntax.parser.ParseException;
 
 import java.util.Random;
 import java.util.Set;
@@ -14,20 +15,26 @@ public class Generator_V2 {
     public PlanLibrary generate(Plan<Set<Literal>, Literal> root, Set<Literal> initialState){
         try{
             return recursiveGenerate(root, initialState, new PlanLibrary(), null);
-        } catch (JasonException e) {
+        } catch (JasonException | ParseException e) {
             e.printStackTrace();
             return null;
         }
     }
 
-    public PlanLibrary recursiveGenerate(Plan<Set<Literal>, Literal> plan, Set<Literal> state, PlanLibrary planLibrary, Pred parentLabel) throws JasonException {
+    public PlanLibrary recursiveGenerate(Plan<Set<Literal>, Literal> plan, Set<Literal> state, PlanLibrary planLibrary, Pred parentLabel) throws JasonException, ParseException {
         if(plan.isEmpty())
             return planLibrary;
 
         Trigger trigger = new Trigger(Trigger.TEOperator.add, Trigger.TEType.achieve, Literal.parseLiteral("act"));
 
-        ListTermImpl context = new ListTermImpl();
-        context.addAll(state);
+        //ListTermImpl context = new ListTermImpl();
+        //context.addAll(state);
+        String contextString = "";
+        for(Literal b : state){
+            contextString += b.toString() + " & ";
+        }
+        LogicalFormula context = ASSyntax.parseFormula(contextString.substring(0,contextString.length()-3));
+
         PlanBodyImpl body = new PlanBodyImpl(PlanBody.BodyType.action, plan.getAction(0));
         body.add(new PlanBodyImpl(PlanBody.BodyType.achieve, Literal.parseLiteral("act")));
 
