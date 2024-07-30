@@ -135,6 +135,7 @@ public class main {
 
         Generator_V2 g = new Generator_V2();
         PlanLibrary lib = g.generate((Plan) plan.get(), init);
+        System.out.println(lib);
 
         double end = System.currentTimeMillis();
 
@@ -223,9 +224,9 @@ public class main {
 
     public static void main(String[] args) throws ParseException, RevisionFailedException {
 
-        testTables();
-        testManyCells(10);
-        testErraticVacuum();
+        //testTables();
+        testManyCells(3);
+        //testErraticVacuum();
 
 
     }

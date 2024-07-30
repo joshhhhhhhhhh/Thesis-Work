@@ -17,7 +17,7 @@ import java.util.List;
  * @author Ruediger Lunde
  * @author Andrew Brown
  */
-public class Plan<S, A> extends jason.asSyntax.Plan {
+public class Plan<S, A> { //extends jason.asSyntax.Plan {
 
     private static final long serialVersionUID = 1L;
 
