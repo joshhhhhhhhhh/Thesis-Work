@@ -56,7 +56,7 @@ public class NonDeterministicValues {
 
     public List<Literal> getActions(Object state) {
         List<Literal> ret = new ArrayList<>();
-        for(LogicalFormula action : actions){
+        for(Literal action : actions){
             List<VarTerm> vars = new ArrayList<>();
             for(VarTerm var : initialValues.keySet()){
                 if(action.hasVar(var, new Unifier())){
@@ -65,17 +65,22 @@ public class NonDeterministicValues {
             }
             List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
             nestedLoop(0, vars, null, allPossibleVarCombinations);
-
             for(Map<VarTerm, Term> mapping : allPossibleVarCombinations){
-                Unifier u = new Unifier();
-                for(VarTerm key : mapping.keySet()){
-                    u.bind(key, mapping.get(key));
+                if(mapping == null){
+                    ret.add(action);
+                } else {
+                    Unifier u = new Unifier();
+                    for(VarTerm key : mapping.keySet()){
+                        u.bind(key, mapping.get(key));
+                    }
+                    ret.add((Literal) action.capply(u));
                 }
-                ret.add((Literal) action.capply(u));
+
             }
         }
         return ret;
     }
+
 
     private void nestedLoop(int numVars, List<VarTerm> keys, Map<VarTerm, Term> vals, List<Map<VarTerm, Term>> allPossibleVarCombinations){
         if(numVars < keys.size()){
@@ -207,25 +212,61 @@ public class NonDeterministicValues {
                         terms = a.getTerms();
                     }
                 }
+
                 Unifier unifier = new Unifier();
-                for(int i=0; i<terms.size();i++){
-                    unifier.bind((VarTerm)terms.get(i), action.getTerm(i));
-                }
-                /*
-                //for(Map<VarTerm, Term> possibility : allPossibleVarCombinations){
-                    Unifier unifier = new Unifier();
-                    for(VarTerm key : possibility.keySet()){
-                        unifier.bind(key, possibility.get(key));
-                    }*/
-                Term unifiedContext = op.getContext().capply(unifier);
-                try{
-                    if(!EvaluateExpression(unifiedContext, state)) {
-                        continue;
+                if(terms != null && terms.size() > 0){
+                    for(int i=0; i<terms.size();i++){
+                        unifier.bind((VarTerm)terms.get(i), action.getTerm(i));
                     }
-                } catch (JasonException e){
-                    e.printStackTrace();
                 }
-                //}
+                Unifier opOnlyUnifier = new Unifier();
+                Term semiUnifiedContext = op.getContext().capply(unifier);
+                //This is for the vars which are part of the operator but not the action
+                List<Term> opTerms = op.getTrigger().getLiteral().getTerms();
+                List<VarTerm> opOnlyTerms = new ArrayList<>();
+                List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
+                if(opTerms != null){
+                    for(Term ct : opTerms){
+                        if(!action.hasVar((VarTerm)ct, new Unifier())){
+                            opOnlyTerms.add((VarTerm)ct);
+                        }
+                    }
+                }
+
+
+                boolean passedContext = false;
+
+                if(opOnlyTerms.isEmpty()){
+                    try{
+                        if(!EvaluateExpression(semiUnifiedContext, state)) {
+                            continue;
+                        }
+                        passedContext = true;
+                    } catch (JasonException e){
+                        e.printStackTrace();
+                    }
+                } else {
+                    nestedLoop(0,opOnlyTerms,null,allPossibleVarCombinations);
+                    for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
+                        Unifier tempUnifier = new Unifier();
+                        for(VarTerm key : combination.keySet()){
+                            tempUnifier.bind(key, combination.get(key));
+                        }
+
+                        Term unifiedContext = semiUnifiedContext.capply(tempUnifier);
+                        try{
+                            if(EvaluateExpression(unifiedContext, state)) {
+                                passedContext = true;
+                                opOnlyUnifier = tempUnifier;
+                                break;
+                            }
+                        } catch (JasonException e){
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                if(!passedContext)
+                    continue;
                 //System.out.println("Valid Values | " + validValues);
                 //System.out.println("Current State | " + state);
                 //if(validValues.size() != 1 && (validValues.size() == 0 || validValues.size() != allPossibleVarCombinations.size()))
@@ -250,6 +291,7 @@ public class NonDeterministicValues {
                         s.add((Literal) b.clone());
                     }
                     Term unifiedWorld = curr.getBodyTerm().capply(unifier);
+                    unifiedWorld = unifiedWorld.capply(opOnlyUnifier);
                     try {
                         applyExprToState(unifiedWorld, s, true);
                     } catch (JasonException e) {

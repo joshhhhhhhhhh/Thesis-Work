@@ -68,6 +68,10 @@ public class main {
         System.out.println(lib);
 
     }
+    public static void testManyCells(int n) throws ParseException, RevisionFailedException {
+        testManyCells(n, null);
+    }
+
 
     public static void testManyCells(int n, CSVWriter writer) throws ParseException, RevisionFailedException {
         Set<Literal> init = new HashSet<>();
@@ -91,18 +95,18 @@ public class main {
 
         List<jason.asSyntax.Plan> operators = new ArrayList<>();
 
-        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X == " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
-        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X == 0 <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1); (not dirty(X)) & clean(X)."));
-        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & dirty(X) & X \\== 0 & X \\== " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
-        operators.add(jason.asSyntax.Plan.parse("+!suck : pos(X) & clean(X) <- dirty(X) & (not clean(X)); None."));
-        operators.add(jason.asSyntax.Plan.parse("+!right : pos(X) & X \\== " + (n-1) + " <- pos(X+1) & not pos(X)."));
-        operators.add(jason.asSyntax.Plan.parse("+!left : pos(X) & X \\== 0 <- pos(X-1) & not pos(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck(X) : pos(X) & dirty(X) & X == " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck(X) : pos(X) & dirty(X) & X == 0 <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck(X) : pos(X) & dirty(X) & X \\== 0 & X \\== " + (n-1) + " <- (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1) & (not dirty(X-1)) & clean(X-1); (not dirty(X)) & clean(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!suck(X) : pos(X) & clean(X) <- dirty(X) & (not clean(X)); None."));
+        operators.add(jason.asSyntax.Plan.parse("+!right(X) : pos(X) & X \\== " + (n-1) + " <- pos(X+1) & not pos(X)."));
+        operators.add(jason.asSyntax.Plan.parse("+!left(X) : pos(X) & X \\== 0 <- pos(X-1) & not pos(X)."));
 
         List<Literal> actions = new ArrayList<>();
 
-        actions.add(Literal.parseLiteral("suck(X)"));
-        actions.add(Literal.parseLiteral("right(X)"));
-        actions.add(Literal.parseLiteral("left(X)"));
+        actions.add(Literal.parseLiteral("suck"));
+        actions.add(Literal.parseLiteral("right"));
+        actions.add(Literal.parseLiteral("left"));
 
         double start = System.currentTimeMillis();
 
@@ -111,8 +115,7 @@ public class main {
         //System.out.println(vals.getActions(null));
 
 
-        //System.out.println(vals.results(operators).results(init, Literal.parseLiteral("suck(0)")));
-
+        //System.out.println(vals.results(operators).results(init, Literal.parseLiteral("suck")));
 
         //System.out.println("---------------------------");
         double afterSetup = System.currentTimeMillis();
@@ -140,9 +143,11 @@ public class main {
         Reducer.reduce(lib);
         //System.out.println(lib);
         //[] data = { String.valueOf(n), String.valueOf(libSize),String.valueOf(afterSetup-start) , String.valueOf(afterCreation-afterSetup) , String.valueOf(afterSearch-afterCreation) , String.valueOf(end-afterSearch) };
-        String[] data = { String.valueOf(n), String.valueOf(libSize), String.valueOf(lib.size())};
+        if(writer != null){
+            String[] data = { String.valueOf(n), String.valueOf(libSize), String.valueOf(lib.size())};
+            writer.writeNext(data);
+        }
 
-        writer.writeNext(data);
 
 
     }
@@ -218,9 +223,9 @@ public class main {
 
     public static void main(String[] args) throws ParseException, RevisionFailedException {
 
-        //testTables();
-        //testManyCells(3);
-        //testErraticVacuum();
+        testTables();
+        testManyCells(10);
+        testErraticVacuum();
 
 
     }
