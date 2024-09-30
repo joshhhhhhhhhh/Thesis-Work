@@ -1,0 +1,6 @@
+(define (problem er_1)
+    (:domain erratic-vacuum-domain)
+    (:objects 0 1 - cell)
+    (:init (pos 0) (dirty 0) (dirty 1))
+    (:goal (and (clean 0) (clean 1)))
+)

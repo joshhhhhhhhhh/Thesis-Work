@@ -1,5 +1,6 @@
 package core.search.nondeterministic;
 
+import jason.JasonException;
 import jason.RevisionFailedException;
 
 import java.util.List;
@@ -26,5 +27,5 @@ public interface ResultsFunction<S, A> {
 	 *            an action to be performed in state s.
 	 * @return the states that result from doing action a in state s.
 	 */
-	List<S> results(S state, A action) throws RevisionFailedException;
+	List<S> results(S state, A action) throws JasonException;
 }

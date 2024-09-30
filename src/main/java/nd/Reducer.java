@@ -1,3 +1,5 @@
+package nd;
+
 import jason.asSyntax.*;
 import jason.asSyntax.parser.ParseException;
 
@@ -25,12 +27,21 @@ public class Reducer {
             if(!bodyStrings.containsKey(originalPlanBody))
                 bodyStrings.put(originalPlanBody, plan);
             else {
-                String originalContext = bodyStrings.get(originalPlanBody).getContext().toString();
-                String newContext = plan.getContext().toString();
+                String originalContext;
+                if(bodyStrings.get(originalPlanBody).getContext() == null){
+                    originalContext = "_";
+                } else {
+                    originalContext = bodyStrings.get(originalPlanBody).getContext().toString();
+                }
+                String newContext;
+                if(plan.getContext() == null){
+                    newContext = "_";
+                } else {
+                    newContext = plan.getContext().toString();
+                }
                 String updatedContext = "(" + newContext + ") | (" + originalContext + ")";
-                //System.out.println(newContext);
-                //System.out.println(originalContext);
                 library.get(bodyStrings.get(originalPlanBody).getLabel()).setContext(ASSyntax.parseFormula(updatedContext));
+                bodyStrings.put(originalPlanBody, library.get(bodyStrings.get(originalPlanBody).getLabel()));
                 library.remove(plan.getLabel());
             }
         }

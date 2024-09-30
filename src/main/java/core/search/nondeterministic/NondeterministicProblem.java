@@ -2,6 +2,7 @@ package core.search.nondeterministic;
 
 import core.search.framework.problem.ActionsFunction;
 import core.search.framework.problem.GoalTest;
+import jason.JasonException;
 import jason.RevisionFailedException;
 
 import java.util.List;
@@ -66,7 +67,7 @@ public class NondeterministicProblem<S, A> {
 	public List<S> getResults(S state, A action) {
 		try {
 			return this.resultsFn.results(state, action);
-		} catch (RevisionFailedException e) {
+		} catch (JasonException e) {
 			e.printStackTrace();
 			return null;
 		}

@@ -1,3 +1,5 @@
+package nd;
+
 import core.search.nondeterministic.ResultsFunction;
 import jason.JasonException;
 import jason.RevisionFailedException;
@@ -5,20 +7,56 @@ import jason.asSemantics.Agent;
 import jason.asSemantics.Unifier;
 import jason.asSyntax.*;
 import jdk.jshell.EvalException;
-import peleus.PlanContextExtractor;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Array;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class NonDeterministicValues {
     //List<Map<VarTerm, Term>> allPossibleVarCombinations;
-    Map<VarTerm, List<Term>> initialValues;
-    Set<LogicalFormula> goalState;
+    //Map<VarTerm, List<Term>> initialValues;
+    Map<Literal, List<Term>> objects;
     List<Literal> actions;
+
+    Set<Term> goalState;
+    List<Plan> operators;
+    public Set<Literal> initialBeliefs;
     private static final String NO_CHANGE = "None";
-    public NonDeterministicValues(Map<VarTerm, List<Term>> initialValues, Set<LogicalFormula> goalState, List<Literal> actions){
+
+    public NonDeterministicValues(List<Literal> beliefs, Set<Term> goalState, List<Plan> operators){
+        this.initialBeliefs = new HashSet<Literal>();
+        this.objects = new HashMap<>();
+        Map<String, Literal> functors = new HashMap<>();
+        for (Literal literal : beliefs) {
+            if(literal.getFunctor().startsWith("object")) {
+                if(functors.containsKey(literal.getTerm(0).toString())){
+                    List<Term> temp = objects.get(functors.get(literal.getTerm(0).toString()));
+                    temp.add(literal.getTerm(1));
+                    objects.put(functors.get(literal.getTerm(0).toString()), temp);
+                } else {
+                    functors.put(literal.getTerm(0).toString(), Literal.parseLiteral(literal.getTerm(0).toString()));
+                    List<Term> temp = new ArrayList<Term>();
+                    temp.add(literal.getTerm(1));
+                    objects.put(functors.get(literal.getTerm(0).toString()), temp);
+                }
+
+            }else if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && literal.getAnnots().contains(Literal.parseLiteral("bel"))){
+                literal.delSources();
+                literal.delAnnot(Literal.parseLiteral("bel"));
+                if(!literal.hasAnnot())
+                    literal.clearAnnots();
+                this.initialBeliefs.add(literal);
+            }
+        }
+        this.operators = operators;
+        this.goalState = new HashSet<Term>(goalState);
+        this.actions = setActions();
+        //this.initialValues = ???
+    }
+
+    /*public NonDeterministicValues(Map<VarTerm, List<Term>> initialValues, Set<LogicalFormula> goalState, List<Literal> actions){
         //this.allPossibleVarCombinations = new ArrayList();
         this.initialValues = initialValues;
         this.actions = actions;
@@ -48,48 +86,64 @@ public class NonDeterministicValues {
             for(int j=0; j<this.allPossibleVarCombinations.size(); j++){
                 this.allPossibleVarCombinations.get(j).put(variable, beliefSet.get((j*beliefSet.size())/this.allPossibleVarCombinations.size()));
             }
-        }*/
+        }
         this.goalState = new HashSet<>(goalState);
         //System.out.println(this.allPossibleVarCombinations);
         //System.out.println(this.allPossibleVarCombinations.size());
+    }*/
+    public List<Literal> getActions(Object state) {
+        return this.actions;
     }
 
-    public List<Literal> getActions(Object state) {
-        List<Literal> ret = new ArrayList<>();
-        for(Literal action : actions){
+    public List<Literal> setActions() {
+        Set<Literal> ret = new HashSet<>();
+
+
+        for(Plan op : operators){
+            List<Term> tempTypes = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
+            List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
+
+            List<Term> types = new ArrayList<>();
             List<VarTerm> vars = new ArrayList<>();
-            for(VarTerm var : initialValues.keySet()){
-                if(action.hasVar(var, new Unifier())){
-                    vars.add(var);
+            for(int i=0; i<tempVariables.size();i++){
+                if(!tempTypes.get(i).toString().contains("temp")){
+                    types.add(tempTypes.get(i));
+                    vars.add(tempVariables.get(i));
                 }
+                    //types.add(Literal.parseLiteral(t.toString().replace("temp", "")));
             }
             List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
-            nestedLoop(0, vars, null, allPossibleVarCombinations);
+            nestedLoop(0, types, vars, null, allPossibleVarCombinations);
+
+            Literal lit = Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor());
+            for(VarTerm var : vars){
+                lit.addTerm(var);
+            }
+
             for(Map<VarTerm, Term> mapping : allPossibleVarCombinations){
                 if(mapping == null){
-                    ret.add(action);
+                    ret.add(lit);
                 } else {
                     Unifier u = new Unifier();
                     for(VarTerm key : mapping.keySet()){
                         u.bind(key, mapping.get(key));
                     }
-                    ret.add((Literal) action.capply(u));
+                    ret.add((Literal) lit.capply(u));
                 }
-
             }
         }
-        return ret;
+        return ret.stream().toList();
     }
 
 
-    private void nestedLoop(int numVars, List<VarTerm> keys, Map<VarTerm, Term> vals, List<Map<VarTerm, Term>> allPossibleVarCombinations){
-        if(numVars < keys.size()){
-            for(Term value : initialValues.get(keys.get(numVars))){
+    private void nestedLoop(int numVars, List<Term> types, List<VarTerm> variables, Map<VarTerm, Term> vals, List<Map<VarTerm, Term>> allPossibleVarCombinations){
+        if(numVars < types.size()){
+            for(Term value : objects.get(types.get(numVars))){
                 Map<VarTerm, Term> newMap= new HashMap<>();
                 if(vals != null)
                     newMap.putAll(vals);
-                newMap.put(keys.get(numVars), value);
-                nestedLoop(numVars+1, keys, newMap, allPossibleVarCombinations);
+                newMap.put(variables.get(numVars), value);
+                nestedLoop(numVars+1, types, variables, newMap, allPossibleVarCombinations);
             }
         } else {
             allPossibleVarCombinations.add(vals);
@@ -161,7 +215,7 @@ public class NonDeterministicValues {
     public boolean testGoalFunction(Object state){
         Set<Literal> currState = (Set<Literal>) state;
         boolean flag = true;
-        for (LogicalFormula goal : this.goalState){
+        for (Term goal : this.goalState){
             if(goal instanceof LogExpr){
                 if(((LogExpr) goal).getOp().equals(LogExpr.LogicalOp.not)){
                     if(((LogExpr) goal).getLHS() instanceof Literal){
@@ -186,27 +240,99 @@ public class NonDeterministicValues {
     }
 
 
-    public ResultsFunction<Set<Literal>, Literal> results(List<Plan> operators) {
+    public ResultsFunction<Set<Literal>, Literal> results() {
         return (Set<Literal> state, Literal action) -> {
+
             List<Plan> viableOperators = new ArrayList<>();
             /*List<Set<Literal>> validStates = new ArrayList<>();
             for(HashMap<VarTerm, Term> potentialState : allPossibleVarCombinations){
                 if(potentialState.containsAll(state))
                     validStates.add(potentialState);
             }*/
-            operators.stream().filter(op -> op.getTrigger().getLiteral().getFunctor().equals(action.getFunctor()))
+            this.operators.stream().filter(op -> op.getTrigger().getLiteral().getFunctor().equals(action.getFunctor()))
                     .forEach(viableOperators::add);
             for(Plan op : viableOperators){
-                /*
-                List<VarTerm> terms = new ArrayList<>();
-                List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
-                for(VarTerm key : initialValues.keySet()){
-                    if(op.getContext().hasVar(key, new Unifier())){
-                        terms.add(key);
+                List<Term> tempTypes = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
+                List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
+
+                List<Term> types = new ArrayList<>();
+                List<VarTerm> mandatoryVars = new ArrayList<>();
+                List<VarTerm> notMandatoryVars = new ArrayList<>();
+                for(int i=0; i<tempVariables.size();i++){
+                    if(!tempTypes.get(i).toString().contains("temp")){
+                        mandatoryVars.add(tempVariables.get(i));
+                    } else {
+                        types.add(Literal.parseLiteral(tempTypes.get(0).toString().replace("temp", "")));
+                        notMandatoryVars.add(tempVariables.get(i));
+                    }
+                    //types.add(Literal.parseLiteral(t.toString().replace("temp", "")));
+                }
+
+                List<Term> values = action.getTerms();
+                Unifier unifier = new Unifier();
+                if(values != null){
+                    for(int i=0; i<values.size(); i++){
+                        unifier.bind(mandatoryVars.get(i), values.get(i));
                     }
                 }
-                nestedLoop(0, terms, null, allPossibleVarCombinations);*/
-                List<Term> terms = new ArrayList<>();
+                LogicalFormula context = op.getContext();
+                Term semiUnifiedContext = context.capply(unifier);
+
+                List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
+                nestedLoop(0, types, notMandatoryVars, null, allPossibleVarCombinations);
+
+                Unifier finalUnifier = null;
+                for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
+                    Unifier tempUnifier = new Unifier();
+                    for(VarTerm key : combination.keySet()){
+                        tempUnifier.bind(key, combination.get(key));
+                    }
+
+                    Term unifiedContext = semiUnifiedContext.capply(tempUnifier);
+                    try{
+                        if(EvaluateExpression(unifiedContext, state)) {
+                            //System.out.println(state + " | " + unifiedContext);
+                            finalUnifier = tempUnifier;
+                            break;
+                        }
+                    } catch (JasonException e){
+                        e.printStackTrace();
+                    }
+                }
+
+                if(finalUnifier == null)
+                    continue;
+                /*
+                List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
+
+                List<VarTerm> variables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
+                List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
+                nestedLoop(0, types, variables, null, allPossibleVarCombinations);
+
+                LogicalFormula context = op.getContext();
+                boolean passedContext = false;
+                Unifier unifier = new Unifier();
+
+                for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
+                    Unifier tempUnifier = new Unifier();
+                    for(VarTerm key : combination.keySet()){
+                        tempUnifier.bind(key, combination.get(key));
+                    }
+
+                    Term unifiedContext = context.capply(tempUnifier);
+                    try{
+                        if(EvaluateExpression(unifiedContext, state)) {
+                            //System.out.println(state + " | " + unifiedContext);
+                            passedContext = true;
+                            unifier = tempUnifier;
+                            break;
+                        }
+                    } catch (JasonException e){
+                        e.printStackTrace();
+                    }
+                }*/
+
+                /*
                 for(Literal a : actions){
                     if(a.getFunctor().equals(action.getFunctor())){
                         terms = a.getTerms();
@@ -221,14 +347,16 @@ public class NonDeterministicValues {
                 }
                 Unifier opOnlyUnifier = new Unifier();
                 Term semiUnifiedContext = op.getContext().capply(unifier);
+
+
                 //This is for the vars which are part of the operator but not the action
                 List<Term> opTerms = op.getTrigger().getLiteral().getTerms();
-                List<VarTerm> opOnlyTerms = new ArrayList<>();
+                List<VarTerm> varTerms = new ArrayList<>();
                 List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
                 if(opTerms != null){
                     for(Term ct : opTerms){
                         if(!action.hasVar((VarTerm)ct, new Unifier())){
-                            opOnlyTerms.add((VarTerm)ct);
+                            varTerms.add((VarTerm)ct);
                         }
                     }
                 }
@@ -236,7 +364,7 @@ public class NonDeterministicValues {
 
                 boolean passedContext = false;
 
-                if(opOnlyTerms.isEmpty()){
+                if(varTerms.isEmpty()){
                     try{
                         if(!EvaluateExpression(semiUnifiedContext, state)) {
                             continue;
@@ -246,7 +374,7 @@ public class NonDeterministicValues {
                         e.printStackTrace();
                     }
                 } else {
-                    nestedLoop(0,opOnlyTerms,null,allPossibleVarCombinations);
+                    nestedLoop(0,varTerms,null,allPossibleVarCombinations);
                     for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
                         Unifier tempUnifier = new Unifier();
                         for(VarTerm key : combination.keySet()){
@@ -266,7 +394,7 @@ public class NonDeterministicValues {
                     }
                 }
                 if(!passedContext)
-                    continue;
+                    continue;*/
                 //System.out.println("Valid Values | " + validValues);
                 //System.out.println("Current State | " + state);
                 //if(validValues.size() != 1 && (validValues.size() == 0 || validValues.size() != allPossibleVarCombinations.size()))
@@ -281,7 +409,7 @@ public class NonDeterministicValues {
                     unifier.bind(key, validValues.stream().toList().get(0).get(key));
                 }*/
 
-                ArrayList<Set<Literal>> results = new ArrayList<>();
+                Set<Set<Literal>> results = new HashSet<>();
                 while(true){
                     if(curr == null)
                         break;
@@ -290,8 +418,7 @@ public class NonDeterministicValues {
                     for (Literal b : state){
                         s.add((Literal) b.clone());
                     }
-                    Term unifiedWorld = curr.getBodyTerm().capply(unifier);
-                    unifiedWorld = unifiedWorld.capply(opOnlyUnifier);
+                    Term unifiedWorld = curr.getBodyTerm().capply(finalUnifier);
                     try {
                         applyExprToState(unifiedWorld, s, true);
                     } catch (JasonException e) {
@@ -301,7 +428,7 @@ public class NonDeterministicValues {
 
                     curr = curr.getBodyNext();
                 }
-                return results;
+                return new ArrayList<>(results);
             }
             return new ArrayList<>();
         };

@@ -1,8 +1,6 @@
 package core.search.nondeterministic;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Artificial Intelligence A Modern Approach (3rd Edition): Figure 4.11, page
@@ -70,32 +68,36 @@ public class AndOrSearch<S, A> {
      *
      * @return a conditional plan or empty on failure
      */
-    public Optional<Plan<S, A>> search(NondeterministicProblem<S, A> problem) {
+    public Optional<Plan<S, A>> search(NondeterministicProblem<S, A> problem,  Map<S,A> validStates) {
 	expandedNodes = 0;
 	// OR-SEARCH(problem.INITIAL-STATE, problem, [])
-	Plan<S, A> plan = orSearch(problem.getInitialState(), problem, new Path<>());
+	Plan<S, A> plan = orSearch(problem.getInitialState(), problem, new Path<>(), new HashMap<>());
 	return plan != null ? Optional.of(plan) : Optional.empty();
     }
 
-    /**
-     * Returns a conditional plan or null on failure; this function is
-     * equivalent to the following on page 136:
-     *
-     * <pre>
-     * <code>
-     * function OR-SEARCH(state, problem, path) returns a conditional plan, or failure
-     *   if problem.GOAL-TEST(state) then return the empty plan
-     *   if state is on path then return failure
-     *   for each action in problem.ACTIONS(state) do
-     *       plan <- AND-SEARCH(RESULTS(state, action), problem, [state | path])
-     *       if plan != failure then return [action | plan]
-     *   return failure
-     * </code>
-     * </pre>
-     *
-     * @return a conditional plan or null on failure
-     */
-    public Plan<S, A> orSearch(S state, NondeterministicProblem<S, A> problem, Path<S> path) {
+	public Optional<Plan<S, A>> search(NondeterministicProblem<S, A> problem) {
+		return search(problem, null);
+	}
+
+		/**
+         * Returns a conditional plan or null on failure; this function is
+         * equivalent to the following on page 136:
+         *
+         * <pre>
+         * <code>
+         * function OR-SEARCH(state, problem, path) returns a conditional plan, or failure
+         *   if problem.GOAL-TEST(state) then return the empty plan
+         *   if state is on path then return failure
+         *   for each action in problem.ACTIONS(state) do
+         *       plan <- AND-SEARCH(RESULTS(state, action), problem, [state | path])
+         *       if plan != failure then return [action | plan]
+         *   return failure
+         * </code>
+         * </pre>
+         *
+         * @return a conditional plan or null on failure
+         */
+    public Plan<S, A> orSearch(S state, NondeterministicProblem<S, A> problem, Path<S> path, Map<S,A> validStates) {
 	// do metrics
 	expandedNodes++;
 	// if problem.GOAL-TEST(state) then return the empty plan
@@ -108,18 +110,36 @@ public class AndOrSearch<S, A> {
 	}
 
 	Plan<S, A> cyclicPlan = null;
-	// for each action in problem.ACTIONS(state) do
-	for (A action : problem.getActions(state)) {
-	    // plan <- AND-SEARCH(RESULTS(state, action), problem, [state|path])
-	    Plan<S, A> plan = andSearch(problem.getResults(state, action), problem,
-					path.prepend(state));
-	    // if plan != failure then return [action|plan]
-	    if (plan != null) {
-		if (!plan.isLoop())
-		    return plan.prepend(action);
-		cyclicPlan = plan.prepend(action);
-	    }
+
+	if(validStates != null && validStates.get(state) != null){
+		A action = validStates.get(state);
+		Plan<S, A> plan = andSearch(problem.getResults(state, action), problem,
+				path.prepend(state), validStates);
+		// if plan != failure then return [action|plan]
+		if (plan != null) {
+			if (!plan.isLoop())
+				return plan.prepend(action);
+			cyclicPlan = plan.prepend(action);
+		}
+	} else {
+		// for each action in problem.ACTIONS(state) do
+		for (A action : problem.getActions(state)) {
+			// plan <- AND-SEARCH(RESULTS(state, action), problem, [state|path])
+			if(validStates != null){
+				validStates.put(state, action);
+			}
+			Plan<S, A> plan = andSearch(problem.getResults(state, action), problem,
+					path.prepend(state), validStates==null?null:new HashMap<S,A>(validStates));
+			// if plan != failure then return [action|plan]
+			if (plan != null) {
+				if (!plan.isLoop())
+					return plan.prepend(action);
+				cyclicPlan = plan.prepend(action);
+			}
+		}
 	}
+
+
 
 	if (cyclicPlan != null) return cyclicPlan;
 
@@ -149,7 +169,7 @@ public class AndOrSearch<S, A> {
      * @param path
      * @return a conditional plan or null on failure
      */
-    public Plan<S, A> andSearch(List<S> states, NondeterministicProblem<S, A> problem, Path<S> path) {
+    public Plan<S, A> andSearch(List<S> states, NondeterministicProblem<S, A> problem, Path<S> path, Map<S,A> validStates) {
 	boolean loopy = true;
 	// do metrics, setup
 	expandedNodes++;
@@ -157,7 +177,7 @@ public class AndOrSearch<S, A> {
 	// for each s_i in states do
 	for (S state : states) {
 	    // plan_i <- OR-SEARCH(s_i, problem, path)
-	    Plan<S, A> subPlan = orSearch(state, problem, path);
+	    Plan<S, A> subPlan = orSearch(state, problem, path, validStates);
 	    subPlans.add(subPlan);
 	    if (subPlan == null)
 		return null;
