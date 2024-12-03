@@ -31,6 +31,6 @@
     (:action left
         :parameters (?x - cell)
         :precondition (not (pos 0))
-        :effect (and (pos (- ?x 1)) (not (pos ?x)))
+        :effect (and (pos 1) (not (pos ?x)))
     )
 )

@@ -10,10 +10,10 @@
 !des.
 +!des : desires(Goals) <-
     .print("Goals to plan: ", Goals);
-    nd.non_deterministic_planning_action(Goals);
+    nd.non_deterministic_planning_action(Goals, mynd);
     +start(system.time).
 
-@action1[celltemp] +!suck(X) : pos(X) & dirty(X) & X == 4 <-
+@action1[celltemp] +!suck(X) : pos(X) & dirty(X) & X == C4 <-
     (not dirty(X)) & clean(X) & (not dirty(X-1)) & clean(X-1);
     (not dirty(X)) & clean(X).
 

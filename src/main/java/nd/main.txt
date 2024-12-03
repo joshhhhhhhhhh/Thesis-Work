@@ -79,15 +79,15 @@ public class main {
 
     public static void testManyCells(int n, CSVWriter writer) throws ParseException, RevisionFailedException {
         Set<Literal> init = new HashSet<>();
-        init.add(Literal.parseLiteral("pos(0)[bel]"));
+        init.add(Literal.parseLiteral("pos(0)[cell]"));
         Set<Term> goals = new HashSet<>();
         List<Term> paramVals = new ArrayList();
 
         for(int i = 0; i<n; i++){
-            init.add(Literal.parseLiteral("dirty(" + i + ")[bel]"));
+            init.add(Literal.parseLiteral("dirty(" + i + ")[cell]"));
             init.add(Literal.parseLiteral("object(cell, " + i + ")"));
-            goals.add(ASSyntax.parseFormula("clean(" + i + ")"));
-            goals.add(ASSyntax.parseFormula("not dirty(" + i + ")"));
+            goals.add(ASSyntax.parseFormula("clean(" + i + ")[cell]"));
+            goals.add(ASSyntax.parseFormula("not dirty(" + i + ")[cell]"));
             paramVals.add(new NumberTermImpl(i));
         }
 
@@ -104,13 +104,19 @@ public class main {
         operators.add(jason.asSyntax.Plan.parse("@action5[celltemp] +!right(X) : pos(X) & X \\== " + (n-1) + " <- pos(X+1) & not pos(X)."));
         operators.add(jason.asSyntax.Plan.parse("@action6[celltemp] +!left(X) : pos(X) & X \\== 0 <- pos(X-1) & not pos(X)."));
 
-        double start = System.currentTimeMillis();
+        //Timing
+        //double start = System.currentTimeMillis();
+        //Memory
+        System.gc();
+        double start = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
 
         NonDeterministicValues vals = new NonDeterministicValues(init.stream().toList(), goals, operators);
+        AgentSpeakToPDDL.generatePDDL(vals);
 
 
         //System.out.println(vals.getActions(null));
-
+/*
         try{
             //System.out.println(vals.results().results(testSet, Literal.parseLiteral("suck(2)")));
             //System.out.println(vals.results().results(testSet, Literal.parseLiteral("right(2)")));
@@ -119,27 +125,44 @@ public class main {
         } catch (JasonException e){
             System.out.println(e.getStackTrace());
         }
-
+*/
         //System.out.println("---------------------------");
-        double afterSetup = System.currentTimeMillis();
+        //Timimg
+        //double afterSetup = System.currentTimeMillis();
+        //Memory
+        System.gc();
+        double afterSetup = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
 
+
+/*
         System.out.println("BELIEFS: " + vals.initialBeliefs);
         System.out.println("GOALS: " + vals.goalState);
         System.out.println("OPERATORS(" + vals.operators.size() + "): " + vals.operators);
         System.out.println("OBJECTS: " + vals.objects);
-
+*/
         NondeterministicProblem problem = new NondeterministicProblem(
                 vals.initialBeliefs,
                 vals::getActions,
                 vals.results(),
                 vals::testGoalFunction);
 
-        double afterCreation = System.currentTimeMillis();
+        //Timing
+        //double afterCreation = System.currentTimeMillis();
+        //Memory
+        System.gc();
+        double afterCreation = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
 
         AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
         Optional plan = search.search(problem);
 
-        double afterSearch = System.currentTimeMillis();
+        //Timing
+        //double afterSearch = System.currentTimeMillis();
+        //Memory
+        System.gc();
+        double afterSearch = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+
 
         Map<String, List<Term>> terms = new HashMap<>();
         for(jason.asSyntax.Plan op : vals.operators){
@@ -149,18 +172,26 @@ public class main {
         Generator_V2 g = new Generator_V2(terms);
         PlanLibrary lib = new PlanLibrary();
         g.generate((Plan) plan.get(), vals.initialBeliefs, lib);
-        System.out.println(lib);
-        System.out.println(lib.size());
+        //System.out.println(lib);
+        //System.out.println(lib.size());
 
-        double end = System.currentTimeMillis();
+        //Timing
+        //double end = System.currentTimeMillis();
+        //Memory
+        System.gc();
+        double end = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+
 
         //System.out.println(lib);
         int libSize = lib.size();
-        Reducer.reduce(lib);
+        //Reducer.reduce(lib);
         //System.out.println(lib);
-        //[] data = { String.valueOf(n), String.valueOf(libSize),String.valueOf(afterSetup-start) , String.valueOf(afterCreation-afterSetup) , String.valueOf(afterSearch-afterCreation) , String.valueOf(end-afterSearch) };
         if(writer != null){
-            String[] data = { String.valueOf(n), String.valueOf(libSize), String.valueOf(lib.size())};
+           // String[] data = { String.valueOf(n), String.valueOf(libSize),String.valueOf(afterSetup-start) , String.valueOf(afterCreation-afterSetup) , String.valueOf(afterSearch-afterCreation) , String.valueOf(end-afterSearch) };
+            String[] data = { String.valueOf(n), String.valueOf(libSize),String.valueOf(afterSetup) , String.valueOf(afterCreation) , String.valueOf(afterSearch) , String.valueOf(end) };
+
+            //String[] data = { String.valueOf(n), String.valueOf(libSize), String.valueOf(lib.size())};
             writer.writeNext(data);
         }
     }
@@ -217,22 +248,24 @@ public class main {
      */
 
     public static void testTimings(String[] args) {
-        File file = new File("timingsWithLibSizeBeforeAndAfterReduction.csv");
+        for(int j=0; j<=2; j++){
+        File file = new File("memories" + j + ".csv");
         try {
             FileWriter outputFile = new FileWriter(file);
             CSVWriter writer = new CSVWriter(outputFile);
-            //String[] header = {"Number of Cells", "Number of Generated Plans","Setup", "Problem Creation", "Search", "Plan Generation"};
-            String[] header = {"Number of Cells", "Number of Generated Plans","Number of Plans after reduction"};
+            String[] header = {"Number of Cells", "Number of Generated Plans","Setup", "Problem Creation", "Search", "Plan Generation"};
+            //String[] header = {"Number of Cells", "Number of Generated Plans","Number of Plans after reduction"};
             writer.writeNext(header);
 
             int[] rounds = {2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50,60,70,80,90,100,120,140};//,160,180,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000};
-            for(int i=0;i<121;i++){
+            for(int i=2; i<140;i++){
                 testManyCells(i, writer);
                 System.out.println(i);
             }
             writer.close();
         } catch (IOException | ParseException | RevisionFailedException e) {
             e.printStackTrace();
+        }
         }
     }
 
@@ -241,7 +274,7 @@ public class main {
         //testTables();
         testManyCells(4);
         //testErraticVacuum();
-
+        //testTimings(null);
 
     }
 }

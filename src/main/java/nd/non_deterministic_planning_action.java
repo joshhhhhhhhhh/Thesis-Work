@@ -9,8 +9,12 @@ import jason.asSemantics.Unifier;
 import jason.asSyntax.*;
 import jason.bb.BeliefBase;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.logging.Logger;
+
+import static nd.AgentSpeakToPDDL.generatePDDL;
 
 public class non_deterministic_planning_action extends DefaultInternalAction {
 
@@ -32,13 +36,18 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             logger.info("plan action requires a list of literals as its parameter");
             return false;
         }
+        String planner;
+        if(args.length >= 2){
+            planner = args[1].toString().toLowerCase().trim();
+        } else {
+            planner = "default";
+        }
 
         Set<Term> goals = new HashSet<Term>(listTerm.getAsList());
 
         //Extract the literals in the belief base to be used
         //as the initial state for the planning problem
         BeliefBase beliefBase = ts.getAg().getBB();
-
         Iterator<Literal> beliefsIterator = beliefBase.iterator();
         List<Literal> beliefs = new ArrayList<Literal>();
         while(beliefsIterator.hasNext()) {
@@ -62,21 +71,47 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
         System.out.println("OPERATORS(" + nd.operators.size() + "): " + nd.operators);
         System.out.println("OBJECTS: " + nd.objects);
 
-
-        NondeterministicProblem problem = new NondeterministicProblem(
-                nd.initialBeliefs,
-                nd::getActions,
-                nd.results(),
-                nd::testGoalFunction);
-        AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
-        System.out.println("Setup Done");
-        Optional plan = search.search(problem);
-        System.out.println("Search Done");
         Map<String, List<Term>> terms = new HashMap<>();
-        for(Plan op : nd.operators){
-            List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
-            terms.put(op.getTrigger().getLiteral().getFunctor(), types);
+        Optional plan;
+        if(planner.equals("default")){
+            NondeterministicProblem problem = new NondeterministicProblem(
+                    nd.initialBeliefs,
+                    nd::getActions,
+                    nd.results(),
+                    nd::testGoalFunction);
+            AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
+            System.out.println("Setup Done");
+            plan = search.search(problem);
+            System.out.println("Search Done");
+            for(Plan op : nd.operators){
+                List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
+                terms.put(op.getTrigger().getLiteral().getFunctor(), types);
+            }
+        } else {
+            generatePDDL(nd);
+            String[] command;
+            if(planner.equals("mynd")){
+                command = new String[]{
+                     "python", "../MyNDPlanner/translator-fond/translate.py", "domain.pddl", "task.pddl"
+                };
+                //"python ../MyNDPlanner/translator-fond/translate.py domain.pddl task.pddl  && java ../MyNDPlanner/mynd.MyNDPlanner -laostar -ff -dumpPlan output.sas > plan.txt";
+            } else {
+                logger.info("Planner not Recognized: " + planner);
+                return false;
+            }
+            Process proc = new ProcessBuilder(command).start();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+            String line = "";
+            while((line = reader.readLine()) != null){
+                System.out.println(line+"\n");
+            }
+
+            proc.waitFor();
+            plan = null;
         }
+
 
         Generator_V2 g = new Generator_V2(terms);
         System.out.println("Generation Done");

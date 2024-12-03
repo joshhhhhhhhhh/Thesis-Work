@@ -28,7 +28,7 @@ public class Generator_V2 {
                     library.add(plan);
                 }
             }
-            System.out.println(usedContexts);
+            //System.out.println(usedContexts);
         } catch (JasonException | ParseException e) {
             e.printStackTrace();
         }

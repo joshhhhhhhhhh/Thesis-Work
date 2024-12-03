@@ -102,23 +102,27 @@ public class ErraticVacuumEnv extends Environment {
     public void updatePercepts(){
         clearPercepts();
 
-        Literal posLit = Literal.parseLiteral("pos(" + this.pos + ")[bel]");
+        Literal posLit = Literal.parseLiteral("pos(c" + this.pos + ")[type(0,cell)]");
         List<Literal> perceptLog = new ArrayList<>();
         addPercept(posLit);
         perceptLog.add(posLit);
         Literal[] cleans = new Literal[cellNum];
+
         for (int i=0; i<cellNum;i++){
-            addPercept(Literal.parseLiteral("object(cell," + i + ")"));
-            cleans[i] = Literal.parseLiteral("clean(" + i + ")");
+            if(i!=0)
+                addPercept(Literal.parseLiteral("linked(c" + (i-1) + ", c" + i + ")[type(0,cell), type(1,cell)]"));
+
+            addPercept(Literal.parseLiteral("object(cell, c" + i + ")"));
+            cleans[i] = Literal.parseLiteral("clean(c" + i + ")");
 
             //clean
             if(cellStates[i] == 0){
-                Literal cellLit = Literal.parseLiteral("clean(" + i + ")[bel]");
+                Literal cellLit = Literal.parseLiteral("clean(c" + i + ")[type(0,cell)]");
                 addPercept(cellLit);
                 perceptLog.add(cellLit);
             } //dirty
             else {
-                Literal cellLit = Literal.parseLiteral("dirty(" + i + ")[bel]");
+                Literal cellLit = Literal.parseLiteral("dirty(c" + i + ")[type(0,cell)]");
                 addPercept(cellLit);
                 perceptLog.add(cellLit);
             }

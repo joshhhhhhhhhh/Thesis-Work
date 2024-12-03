@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 public class NonDeterministicValues {
     //List<Map<VarTerm, Term>> allPossibleVarCombinations;
     //Map<VarTerm, List<Term>> initialValues;
+
+    //Shape: {cell: [c0, c1 ...], vacuum: [v0]}
     Map<Literal, List<Term>> objects;
     List<Literal> actions;
 
@@ -31,7 +33,7 @@ public class NonDeterministicValues {
         Map<String, Literal> functors = new HashMap<>();
         for (Literal literal : beliefs) {
             if(literal.getFunctor().startsWith("object")) {
-                if(functors.containsKey(literal.getTerm(0).toString())){
+                if (functors.containsKey(literal.getTerm(0).toString())) {
                     List<Term> temp = objects.get(functors.get(literal.getTerm(0).toString()));
                     temp.add(literal.getTerm(1));
                     objects.put(functors.get(literal.getTerm(0).toString()), temp);
@@ -41,12 +43,18 @@ public class NonDeterministicValues {
                     temp.add(literal.getTerm(1));
                     objects.put(functors.get(literal.getTerm(0).toString()), temp);
                 }
-
-            }else if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && literal.getAnnots().contains(Literal.parseLiteral("bel"))){
+            }
+        }
+        for (Literal literal : beliefs) {
+            if(literal.getFunctor().startsWith("object"))
+                continue;
+            //if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && literal.getAnnots().contains(Literal.parseLiteral("bel"))){
+            //if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && !Collections.disjoint(literal.getAnnots().stream().map(a -> ((Literal)a).getTerm(1)).toList(), objects.keySet())){
+            if(!literal.getAnnots("type").isEmpty()){
+                System.out.println("VAL: " + literal.getAnnots("type") + " | LITERAL: " + literal);
                 literal.delSources();
-                literal.delAnnot(Literal.parseLiteral("bel"));
-                if(!literal.hasAnnot())
-                    literal.clearAnnots();
+                //if(literal.hasAnnot())
+                //    literal.clearAnnots();
                 this.initialBeliefs.add(literal);
             }
         }
@@ -100,16 +108,26 @@ public class NonDeterministicValues {
 
 
         for(Plan op : operators){
-            List<Term> tempTypes = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
-            List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
+            List<Term> tempAnnots = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
+            //List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
 
             List<Term> types = new ArrayList<>();
             List<VarTerm> vars = new ArrayList<>();
-            for(int i=0; i<tempVariables.size();i++){
-                if(!tempTypes.get(i).toString().contains("temp")){
+            //System.out.println("VARS: " + tempVariables + " TYPES: " + op.getLabel().getTerms());
+            for(Term var : tempAnnots){
+                Literal lit = (Literal)var;
+                if(var.toString().equals(lit.getTerm(0).toString())){
+                    if(!lit.getTerm(2).toString().equals("temp")){
+                        types.add(lit.getTerm(1));
+                        vars.add((VarTerm) lit.getTerm(0));
+                    }
+                }
+
+
+                /*if(!tempTypes.get(i).toString().contains("temp")){
                     types.add(tempTypes.get(i));
                     vars.add(tempVariables.get(i));
-                }
+                }*/
                     //types.add(Literal.parseLiteral(t.toString().replace("temp", "")));
             }
             List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
@@ -252,13 +270,27 @@ public class NonDeterministicValues {
             this.operators.stream().filter(op -> op.getTrigger().getLiteral().getFunctor().equals(action.getFunctor()))
                     .forEach(viableOperators::add);
             for(Plan op : viableOperators){
-                List<Term> tempTypes = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
-                List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
+                List<Term> tempAnnots = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
+                //List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
 
                 List<Term> types = new ArrayList<>();
                 List<VarTerm> mandatoryVars = new ArrayList<>();
                 List<VarTerm> notMandatoryVars = new ArrayList<>();
-                for(int i=0; i<tempVariables.size();i++){
+
+                for(Term var : tempAnnots) {
+                    Literal lit = (Literal) var;
+                    types.add(lit.getTerm(1));
+                    if (!lit.getTerm(2).toString().equals("temp")) {
+                        mandatoryVars.add((VarTerm) lit.getTerm(0));
+                    } else {
+                        notMandatoryVars.add((VarTerm) lit.getTerm(0));
+                    }
+                }
+                System.out.println("TYPES: " + types);
+                System.out.println("Mandatory TYpes: " + mandatoryVars);
+                System.out.println("NonMandatoryTypes: " + notMandatoryVars);
+
+                /*for(int i=0; i<tempVariables.size();i++){
                     if(!tempTypes.get(i).toString().contains("temp")){
                         mandatoryVars.add(tempVariables.get(i));
                     } else {
@@ -266,7 +298,7 @@ public class NonDeterministicValues {
                         notMandatoryVars.add(tempVariables.get(i));
                     }
                     //types.add(Literal.parseLiteral(t.toString().replace("temp", "")));
-                }
+                }*/
 
                 List<Term> values = action.getTerms();
                 Unifier unifier = new Unifier();
