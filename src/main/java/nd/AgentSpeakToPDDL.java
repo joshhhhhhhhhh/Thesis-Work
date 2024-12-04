@@ -34,7 +34,6 @@ public class AgentSpeakToPDDL {
         domain.addRequirement(RequireKey.EQUALITY);
         domain.addRequirement(RequireKey.STRIPS);
         domain.addRequirement(RequireKey.TYPING);
-        //TODO: Add :non-deterministic requirement manually
 
         //Adds the types
         for(Literal type : nd.objects.keySet()){
@@ -42,25 +41,17 @@ public class AgentSpeakToPDDL {
         }
 
         //Adds Predicates
-        //Note: Requires Initial Beliefs to be annoted with types
-        //Example: pos(X)[type(0, cell)]
+        //Note: Requires predicates to be defined.
+        //Example: predicate(clean, cell)
+        //         predicate(linked, cell, cell)
         // -> The annotation denotes that the term in position 0 is of type cell
-        System.out.println(nd.initialBeliefs);
-        for(Literal bel : nd.initialBeliefs){
-            NamedTypedList pred = new NamedTypedList(new Symbol<>(SymbolType.PREDICATE, bel.getFunctor()));
-            for(int i=0; i<bel.getTerms().size(); i++){
+        for(String predicate : nd.predicates.keySet()){
+            NamedTypedList pred = new NamedTypedList(new Symbol<>(SymbolType.PREDICATE, predicate));
+            for(int i=0; i<nd.predicates.get(predicate).size(); i++){
                 TypedSymbol s = new TypedSymbol(SymbolType.VARIABLE, "?v"+i);
-                System.out.println(bel);
-                for(Term t : bel.getAnnots().getAsList()){
-                    Literal lit = (Literal)t;
-                    if(Integer.parseInt(lit.getTerm(0).toString()) == i){
-                        s.addType(new Symbol(SymbolType.TYPE, lit.getTerm(1)));
-                    }
-                }
-                //s.addType(new Symbol(SymbolType.TYPE, bel.getAnnots().get(i)));
+                s.addType(new Symbol(SymbolType.TYPE, nd.predicates.get(predicate).get(i)));
                 pred.add(s);
             }
-            System.out.println("PRED: " + pred);
             domain.addPredicate(pred);
         }
 
@@ -167,7 +158,7 @@ public class AgentSpeakToPDDL {
             Expression init = new Expression(Connector.ATOM);
             init.setSymbol(new Symbol(SymbolType.PREDICATE, bel.getFunctor()));
             for (Term term : bel.getTerms()){
-                init.addArgument(new Symbol(SymbolType.VARIABLE, "?" + term.toString()));
+                init.addArgument(new Symbol(SymbolType.CONSTANT, term.toString()));
             }
             problem.addInitialFact(init);
         }

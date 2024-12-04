@@ -20,6 +20,9 @@ public class NonDeterministicValues {
 
     //Shape: {cell: [c0, c1 ...], vacuum: [v0]}
     Map<Literal, List<Term>> objects;
+
+    //Only used for the PDDL translation
+    Map<String, List<String>> predicates;
     List<Literal> actions;
 
     Set<Term> goalState;
@@ -30,6 +33,7 @@ public class NonDeterministicValues {
     public NonDeterministicValues(List<Literal> beliefs, Set<Term> goalState, List<Plan> operators){
         this.initialBeliefs = new HashSet<Literal>();
         this.objects = new HashMap<>();
+        this.predicates = new HashMap<>();
         Map<String, Literal> functors = new HashMap<>();
         for (Literal literal : beliefs) {
             if(literal.getFunctor().startsWith("object")) {
@@ -43,15 +47,21 @@ public class NonDeterministicValues {
                     temp.add(literal.getTerm(1));
                     objects.put(functors.get(literal.getTerm(0).toString()), temp);
                 }
+            } else if (literal.getFunctor().startsWith("predicate")) {
+                List<String> types = new ArrayList();
+                for (int i=1; i<literal.getTerms().size(); i++){
+                    types.add(literal.getTerm(i).toString());
+                }
+                predicates.put(literal.getTerm(0).toString(), types);
             }
         }
         for (Literal literal : beliefs) {
-            if(literal.getFunctor().startsWith("object"))
+            if(literal.getFunctor().startsWith("object") || literal.getFunctor().startsWith("predicate"))
                 continue;
             //if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && literal.getAnnots().contains(Literal.parseLiteral("bel"))){
             //if( (literal.getArity()!= 0) && (!literal.getFunctor().startsWith("des")) && !Collections.disjoint(literal.getAnnots().stream().map(a -> ((Literal)a).getTerm(1)).toList(), objects.keySet())){
-            if(!literal.getAnnots("type").isEmpty()){
-                System.out.println("VAL: " + literal.getAnnots("type") + " | LITERAL: " + literal);
+            //if(!literal.getAnnots("type").isEmpty()){
+            if(predicates.keySet().contains(literal.getFunctor())){
                 literal.delSources();
                 //if(literal.hasAnnot())
                 //    literal.clearAnnots();
