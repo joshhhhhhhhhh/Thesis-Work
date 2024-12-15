@@ -14,19 +14,19 @@
     nd.non_deterministic_planning_action(Goals, mynd);
     +start(system.time).
 
-@action1[type(X, cell, temp)] +!suck(X) : pos(X) & dirty(X) & linked(c3, X) <-
+@action1[type(X, cell, temp)] +!suckR(X) : pos(X) & dirty(X) & linked(c3, X) <-
     (not dirty(X)) & clean(X) & (not dirty(c3)) & clean(c3);
     (not dirty(X)) & clean(X).
 
-@action2[type(X, cell, temp)] +!suck(X) : pos(X) & dirty(X) & linked(X, c1) <-
+@action2[type(X, cell, temp)] +!suckL(X) : pos(X) & dirty(X) & linked(X, c1) <-
     (not dirty(X)) & clean(X) & (not dirty(c1)) & clean(c1);
     (not dirty(X)) & clean(X).
 
-@action3[type(X, cell, temp), type(R, cell, temp), type(L, cell, temp)] +!suck(X, L, R) : pos(X) & dirty(X) & linked(L, X) & linked(X, R) <-
+@action3[type(X, cell, temp), type(R, cell, temp), type(L, cell, temp)] +!suckD(X, L, R) : pos(X) & dirty(X) & linked(L, X) & linked(X, R) <-
     (not dirty(X)) & clean(X) & (not dirty(R)) & clean(R) & (not dirty(L)) & clean(L);
     (not dirty(X)) & clean(X).
 
-@action4[type(X, cell, temp)] +!suck(X) : pos(X) & clean(X) <-
+@action4[type(X, cell, temp)] +!suckC(X) : pos(X) & clean(X) <-
     dirty(X) & (not clean(X));
     None.
 

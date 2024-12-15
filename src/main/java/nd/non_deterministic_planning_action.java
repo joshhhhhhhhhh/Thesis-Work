@@ -14,7 +14,6 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.logging.Logger;
 
-import static nd.AgentSpeakToPDDL.generatePDDL;
 
 public class non_deterministic_planning_action extends DefaultInternalAction {
 
@@ -88,28 +87,34 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 terms.put(op.getTrigger().getLiteral().getFunctor(), types);
             }
         } else {
-            generatePDDL(nd);
+            AgentSpeakToPDDL agentSpeakToPDDL = new AgentSpeakToPDDL();
+            agentSpeakToPDDL.generatePDDL(nd);
             String[] command;
             if(planner.equals("mynd")){
                 command = new String[]{
-                     "python", "../MyNDPlanner/translator-fond/translate.py", "domain.pddl", "task.pddl"
+                     "python", "../MyNDPlanner/translator-fond/translate.py", "domain.pddl", "task.pddl",
+                        "&&", "java", "../MyNDPlanner/src/mynd.MyNDPlanner", "-dumpPlan",
+                        "../MyNDPlanner/output.sas"
                 };
+
+                Process proc = new ProcessBuilder(command).start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+                String line = "";
+                while((line = reader.readLine()) != null){
+                    System.out.println(line+"\n");
+                }
+
+                proc.waitFor();
+                plan = null;
+
                 //"python ../MyNDPlanner/translator-fond/translate.py domain.pddl task.pddl  && java ../MyNDPlanner/mynd.MyNDPlanner -laostar -ff -dumpPlan output.sas > plan.txt";
             } else {
                 logger.info("Planner not Recognized: " + planner);
                 return false;
             }
-            Process proc = new ProcessBuilder(command).start();
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-
-            String line = "";
-            while((line = reader.readLine()) != null){
-                System.out.println(line+"\n");
-            }
-
-            proc.waitFor();
-            plan = null;
         }
 
 

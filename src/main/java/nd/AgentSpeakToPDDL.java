@@ -14,22 +14,26 @@ import java.util.stream.Collectors;
 
 public class AgentSpeakToPDDL {
 
-    public AgentSpeakToPDDL(){}
-    public static void generatePDDL(NonDeterministicValues nd) {
+    Map<String, List<String>> predicates;
+    ParsedDomain domain;
+    ParsedProblem problem;
+
+    public AgentSpeakToPDDL(){
+        this.predicates = new HashMap<>();
+        this.domain = new DefaultParsedProblem(new Symbol<>(SymbolType.DOMAIN, "d1"));
+        this.problem = new DefaultParsedProblem(new Symbol<String>(SymbolType.DOMAIN, "domain"));
+        problem.setDomainName(new Symbol<>(SymbolType.DOMAIN, "d1"));
+    }
+    public void generatePDDL(NonDeterministicValues nd) {
         try {
-            generateDomain(nd);
+            generateDomainAndProblem(nd);
         } catch (JasonException e) {
-            System.out.println("Could Not Parse Domain: " + e.getMessage());
-        }
-        try {
-            generateProblem(nd);
-        } catch(JasonException e){
-            System.out.println("Could Not Parse Problem: " + e.getMessage());
+            System.out.println("Could Not Creating PDDL Files: " + e.getMessage());
         }
     }
 
-    private static void generateDomain(NonDeterministicValues nd) throws JasonException {
-        ParsedDomain domain = new DefaultParsedProblem(new Symbol<>(SymbolType.DOMAIN, "d1"));
+    private void generateDomainAndProblem(NonDeterministicValues nd) throws JasonException {
+
 
         domain.addRequirement(RequireKey.EQUALITY);
         domain.addRequirement(RequireKey.STRIPS);
@@ -40,19 +44,15 @@ public class AgentSpeakToPDDL {
             domain.addType(new TypedSymbol<>(new Symbol<>(SymbolType.TYPE, type.toString())));
         }
 
-        //Adds Predicates
-        //Note: Requires predicates to be defined.
-        //Example: predicate(clean, cell)
-        //         predicate(linked, cell, cell)
-        // -> The annotation denotes that the term in position 0 is of type cell
-        for(String predicate : nd.predicates.keySet()){
-            NamedTypedList pred = new NamedTypedList(new Symbol<>(SymbolType.PREDICATE, predicate));
-            for(int i=0; i<nd.predicates.get(predicate).size(); i++){
-                TypedSymbol s = new TypedSymbol(SymbolType.VARIABLE, "?v"+i);
-                s.addType(new Symbol(SymbolType.TYPE, nd.predicates.get(predicate).get(i)));
-                pred.add(s);
+        //objects
+        for(Map.Entry<Literal, List<Term>> entry : nd.objects.entrySet()){
+            Literal type = entry.getKey();
+            List<Term> objects = entry.getValue();
+            for(Term object : objects) {
+                TypedSymbol t = new TypedSymbol<>(SymbolType.CONSTANT, object.toString());
+                t.addType(new Symbol(SymbolType.TYPE, type.toString()));
+                problem.addObject(t);
             }
-            domain.addPredicate(pred);
         }
 
         //Adds Actions :)
@@ -60,7 +60,7 @@ public class AgentSpeakToPDDL {
             List<String> actionVariables = op.getTrigger().getLiteral().getTerms().stream().map(Object::toString).toList();
             List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
 
-
+            Map<String, String> paramsWithTypes = new HashMap<>();
             List<TypedSymbol<String>> params = new ArrayList<>();
             for(String var : actionVariables){
                 TypedSymbol param = new TypedSymbol(SymbolType.VARIABLE, "?"+var);
@@ -68,6 +68,7 @@ public class AgentSpeakToPDDL {
                     Literal lit = (Literal)t;
                     if(lit.getTerm(0).toString().equals(var)){
                         param.addType(new Symbol(SymbolType.TYPE, lit.getTerm(1).toString()));
+                        paramsWithTypes.put(var, lit.getTerm(1).toString());
                         break;
                     }
                 }
@@ -77,19 +78,19 @@ public class AgentSpeakToPDDL {
             //Preconditions required to be a string of ANDS
             Term ctx = op.getContext();
 
-            Expression preconds = getExpression(ctx, actionVariables);
+            Expression preconds = getExpression(ctx, paramsWithTypes);
 
             Expression effects = new Expression();
 
             //Deterministic Case
             if(op.getBody().getBodyNext() == null){
-                effects = getExpression(op.getBody().getBodyTerm(), actionVariables);
+                effects = getExpression(op.getBody().getBodyTerm(), paramsWithTypes);
             } else {
                 effects.setConnector(Connector.ASSIGN);
                 effects.setSymbol(new Symbol(SymbolType.FUNCTOR, "oneof"));
                 PlanBody curr = op.getBody();
                 while(curr != null){
-                    effects.addChild(getExpression(curr.getBodyTerm(), actionVariables));
+                    effects.addChild(getExpression(curr.getBodyTerm(), paramsWithTypes));
                     curr = curr.getBodyNext();
                 }
             }
@@ -104,54 +105,13 @@ public class AgentSpeakToPDDL {
             domain.addAction(action);
         }
 
-        String out = domain.toString().replace(":typing", ":typing :non-deterministic").replace("(assign", "(oneof").replace("(None )", "(and)");
-
-        //Removing Auto GeneratedTasks
-        int start = out.indexOf("(:task");
-        int end = out.indexOf("(:action");
-        System.out.println("S" + start + " E" + end);
-        String del = "";
-        char[] outCharArray = out.toCharArray();
-
-        for(int i=start; i < end; i++){
-            del += outCharArray[i];
-        }
-        out = out.replace(del, "");
-
-        //System.out.println("DOMAIN: " + domain.toString());
-        try{
-            File domainFile = new File("domain.pddl");
-            domainFile.createNewFile();
-            FileWriter writer = new FileWriter("domain.pddl");
-            writer.write(out);
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    private static void generateProblem(NonDeterministicValues nd) throws JasonException {
-        ParsedProblem problem = new DefaultParsedProblem(new Symbol<String>(SymbolType.DOMAIN, "domain"));
-        problem.setDomainName(new Symbol<>(SymbolType.DOMAIN, "domain"));
         //Goal
         Expression goal = new Expression();
         for(Term pred : nd.goalState){
-            goal.addChild(getExpression(pred, Collections.emptyList()));
+            goal.addChild(getExpression(pred, Collections.emptyMap()));
         }
         System.out.println("GOALL " + goal);
         problem.setGoal(goal);
-
-        //objects
-        for(Map.Entry<Literal, List<Term>> entry : nd.objects.entrySet()){
-            Literal type = entry.getKey();
-            List<Term> objects = entry.getValue();
-            for(Term object : objects) {
-                TypedSymbol t = new TypedSymbol<>(SymbolType.CONSTANT, object.toString());
-                t.addType(new Symbol(SymbolType.TYPE, type.toString()));
-                problem.addObject(t);
-            }
-        }
 
         //init
         for(Literal bel : nd.initialBeliefs) {
@@ -160,36 +120,95 @@ public class AgentSpeakToPDDL {
             for (Term term : bel.getTerms()){
                 init.addArgument(new Symbol(SymbolType.CONSTANT, term.toString()));
             }
+            if(!this.predicates.containsKey(bel.getFunctor())){
+                List<String> types = new ArrayList<>();
+                for (Term term : bel.getTerms()){
+                    for(TypedSymbol object : problem.getObjects()){
+                        if(term.toString().equals(object.getValue().toString())){
+                            types.add(object.getTypes().get(0).toString());
+                            break;
+                        }
+                    }
+                }
+                predicates.put(bel.getFunctor(), types);
+            }
             problem.addInitialFact(init);
         }
 
-        String out = "(define (problem p1)\n(:domain d1)\n(:objects\n";
-        for(TypedSymbol t : problem.getObjects()){
-            out += t.toString()+"\n";
+        //Adds Predicates
+        //Note: Requires predicates to be defined.
+        //Example: predicate(clean, cell)
+        //         predicate(linked, cell, cell)
+        // -> The annotation denotes that the term in position 0 is of type cell
+        for(String predicate : this.predicates.keySet()){
+            NamedTypedList pred = new NamedTypedList(new Symbol<>(SymbolType.PREDICATE, predicate));
+            for(int i=0; i<this.predicates.get(predicate).size(); i++){
+                TypedSymbol s = new TypedSymbol(SymbolType.VARIABLE, "?v"+i);
+                s.addType(new Symbol(SymbolType.TYPE, this.predicates.get(predicate).get(i)));
+                pred.add(s);
+            }
+            domain.addPredicate(pred);
         }
-        out+= ")\n(:init\n";
-        for(Expression e : problem.getInit()){
-            out += e+"\n";
-        }
-        out+=")\n(:goal\n";
-        out+=problem.getGoal().toString();
-        out+="\n))";
-        System.out.println("PROBLEM: " + out);
 
+        String domainOut = domain.toString().replace(":typing", ":typing :non-deterministic").replace("(assign", "(oneof").replace("(None )", "(and)");
+
+        //Removing Auto GeneratedTasks
+        int start = domainOut.indexOf("(:task");
+        int end = domainOut.indexOf("(:action");
+        System.out.println("S" + start + " E" + end);
+        String del = "";
+        char[] outCharArray = domainOut.toCharArray();
+
+        for(int i=start; i < end; i++){
+            del += outCharArray[i];
+        }
+        domainOut = domainOut.replace(del, "");
+
+        String problemOut = "(define (problem p1)\n(:domain d1)\n(:objects\n";
+        for(TypedSymbol t : problem.getObjects()){
+            problemOut += t.toString()+"\n";
+        }
+        problemOut+= ")\n(:init\n";
+        for(Expression e : problem.getInit()){
+            problemOut += e+"\n";
+        }
+        problemOut+=")\n(:goal\n";
+        problemOut+=problem.getGoal().toString();
+        problemOut+="\n))";
+
+
+        //Creating Domain File
         try{
-            File domainFile = new File("task.pddl");
+            File domainFile = new File("domain.pddl");
             domainFile.createNewFile();
-            FileWriter writer = new FileWriter("task.pddl");
-            writer.write(out);
+            FileWriter writer = new FileWriter("domain.pddl");
+            writer.write(domainOut);
             writer.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+        //Creating Problem File
+        try{
+            File domainFile = new File("task.pddl");
+            domainFile.createNewFile();
+            FileWriter writer = new FileWriter("task.pddl");
+            writer.write(problemOut);
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 
-    private static Expression getExpression(Term term, List<String> vars) throws JasonException {
+    /**
+     *
+     * @param term
+     * @param vars List of the variables in the expression and their corresponding types
+     * @return
+     * @throws JasonException
+     */
+    private Expression getExpression(Term term, Map<String, String> vars) throws JasonException {
         if(term instanceof LogExpr){
             if(((LogExpr) term).getOp().equals(LogExpr.LogicalOp.not)){
                 Expression exp = new Expression(Connector.NOT);
@@ -215,8 +234,13 @@ public class AgentSpeakToPDDL {
             Expression exp = new Expression(Connector.ATOM);
             exp.setSymbol(new Symbol(SymbolType.PREDICATE, ((Literal) term).getFunctor()));
             if(((Literal) term).hasTerm()){
+                boolean newPred = this.predicates.containsKey(((Literal) term).getFunctor());
                 for(Term arg : ((Literal) term).getTerms()){
-                    exp.addArgument(getCorrectSymbol(arg.toString(), vars));
+                    if(newPred){
+                        exp.addArgument(getCorrectSymbol(arg.toString(), vars, null));
+                    } else {
+                        exp.addArgument(getCorrectSymbol(arg.toString(), vars, ((Literal) term).getFunctor()));
+                    }
                 }
             }
 
@@ -227,7 +251,7 @@ public class AgentSpeakToPDDL {
         throw new JasonException("Creation of Expression failed for " + term + "of type: " + term.getClass().getTypeName());
     }
 
-    private static Expression getRelativeExpression(RelExpr expr, List<String> vars){
+    private Expression getRelativeExpression(RelExpr expr, Map<String, String> vars){
         Expression exp = new Expression<>();
         switch(expr.getOp()){
             case none:
@@ -251,9 +275,9 @@ public class AgentSpeakToPDDL {
                 exp.setConnector(Connector.NOT);
                 Expression subExp = new Expression(Connector.EQUAL_COMPARISON);
                 Expression left = new Expression(Connector.ATOM);
-                left.setSymbol(getCorrectSymbol(expr.getLHS().toString(), vars));
+                left.setSymbol(getCorrectSymbol(expr.getLHS().toString(), vars, null));
                 Expression right = new Expression(Connector.ATOM);
-                right.setSymbol(getCorrectSymbol(expr.getRHS().toString(), vars));
+                right.setSymbol(getCorrectSymbol(expr.getRHS().toString(), vars, null));
                 subExp.addChild(left);
                 subExp.addChild(right);
                 exp.addChild(subExp);
@@ -261,9 +285,9 @@ public class AgentSpeakToPDDL {
         }
         if(expr.getOp() != RelExpr.RelationalOp.dif){
             Expression left = new Expression(Connector.ATOM);
-            left.setSymbol(getCorrectSymbol(expr.getLHS().toString(), vars));
+            left.setSymbol(getCorrectSymbol(expr.getLHS().toString(), vars, null));
             Expression right = new Expression(Connector.ATOM);
-            right.setSymbol(getCorrectSymbol(expr.getRHS().toString(), vars));
+            right.setSymbol(getCorrectSymbol(expr.getRHS().toString(), vars, null));
             exp.addChild(left);
             exp.addChild(right);
 
@@ -271,17 +295,42 @@ public class AgentSpeakToPDDL {
         return exp;
     }
 
-    private static Symbol getCorrectSymbol(String name, List<String> vars){
+    /**
+     *
+     * @param name the name of the var/const
+     * @param vars A map of the variables used in the expression to their types
+     * @param predicateName The name of the associated predicate or null
+     * @return
+     */
+    private Symbol getCorrectSymbol(String name, Map<String, String> vars, String predicateName){
         SymbolType s;
 
         //Variable is denoted with a ?
-        if(vars.contains(name)){
+        if(vars.keySet().contains(name)){
             s = SymbolType.VARIABLE;
+            if(predicateName != null){
+                this.predicates.computeIfAbsent(predicateName, k -> new ArrayList<>());
+                System.out.println("BEFORE PRED: " + predicateName + " | " + predicates);
+
+                List<String> temp = this.predicates.get(predicateName);
+                temp.add(vars.get(name));
+                this.predicates.put(predicateName, temp);
+                System.out.println("AFTER PRED: " + predicateName + " | " + predicates);
+            }
             return new Symbol(s, "?"+name);
 
             //Constant
         } else {
             s = SymbolType.CONSTANT;
+            if(predicateName != null) {
+                this.predicates.computeIfAbsent(predicateName, k -> new ArrayList<>());
+                System.out.println("BEFORE PRED: " + predicateName + " | " + predicates);
+                List<String> temp = this.predicates.get(predicateName);
+                temp.add(this.problem.getObjects().stream().filter(o -> o.getValue().equals(name)).toList().get(0).getTypes().get(0).toString());
+                this.predicates.put(predicateName, temp);
+                System.out.println("AFTER PRED: " + predicateName + " | " + predicates);
+
+            }
             return new Symbol(s, name);
 
         }
