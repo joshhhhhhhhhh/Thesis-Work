@@ -14,6 +14,8 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.logging.Logger;
 
+import static nd.OutputParser.*;
+
 
 public class non_deterministic_planning_action extends DefaultInternalAction {
 
@@ -86,48 +88,115 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
                 terms.put(op.getTrigger().getLiteral().getFunctor(), types);
             }
+            Generator_V2 g = new Generator_V2(terms);
+            System.out.println("Generation Done");
+            g.generate((core.search.nondeterministic.Plan<Set<Literal>, Literal>) plan.get(), nd.initialBeliefs, planLibrary);
         } else {
+            for(Plan op : nd.operators){
+                op.getTrigger().setLiteral(Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor()+op.getLabel().getFunctor()));
+            }
             AgentSpeakToPDDL agentSpeakToPDDL = new AgentSpeakToPDDL();
             agentSpeakToPDDL.generatePDDL(nd);
             String[] command;
-            if(planner.equals("mynd")){
-                command = new String[]{
+
+        if(planner.equals("prp")) {
+            command = new String[] {
+                    "prp",  "domain.pddl", "task.pddl", "--dump-policy", "2"
+            };
+
+            Process proc = new ProcessBuilder(command).start();
+            proc.waitFor();
+
+            command = new String[] {
+                    "python2",  "../PLANNERS/prp/prp-scripts/translate_policy.py"
+            };
+            proc = new ProcessBuilder(command).start();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+            String policy = "";
+            String line = "";
+            while((line = reader.readLine()) != null){
+                policy +=line+"\n";
+                System.out.println(line+"\n");
+            }
+            proc.waitFor();
+            addPlansFromPlannerToLibrary(parsePRP(policy), planLibrary, nd);
+
+        } else if(planner.equals("mynd")){
+                /*command = new String[]{
                      "python", "../MyNDPlanner/translator-fond/translate.py", "domain.pddl", "task.pddl",
                         "&&", "java", "../MyNDPlanner/src/mynd.MyNDPlanner", "-dumpPlan",
                         "../MyNDPlanner/output.sas"
+                };*/
+                command = new String[] {
+                       "mynd", "domain.pddl", "task.pddl", "-dumpPlan"
+                };
+                //"python ../MyNDPlanner/translator-fond/translate.py domain.pddl task.pddl  && java ../MyNDPlanner/mynd.MyNDPlanner -laostar -ff -dumpPlan output.sas > plan.txt";
+
+                Process proc = new ProcessBuilder(command).start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+                String policy = "";
+                String line = "";
+                while((line = reader.readLine()) != null){
+                    policy +=line+"\n";
+                    System.out.println(line+"\n");
+                }
+                proc.waitFor();
+                addPlansFromPlannerToLibrary(parseMyND(policy), planLibrary, nd);
+
+            } else if(planner.equals("paladinus")) {
+                command = new String[] {
+                        "paladinus",  "domain.pddl", "task.pddl", "-printPolicy"
                 };
 
                 Process proc = new ProcessBuilder(command).start();
 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
+                String policy = "";
                 String line = "";
                 while((line = reader.readLine()) != null){
+                    policy +=line+"\n";
                     System.out.println(line+"\n");
                 }
-
                 proc.waitFor();
-                plan = null;
+                addPlansFromPlannerToLibrary(parsePaladinus(policy), planLibrary, nd);
 
-                //"python ../MyNDPlanner/translator-fond/translate.py domain.pddl task.pddl  && java ../MyNDPlanner/mynd.MyNDPlanner -laostar -ff -dumpPlan output.sas > plan.txt";
+            } else if(planner.equals("fondsat")) {
+                command = new String[] {
+                        "fondsat",  "domain.pddl", "task.pddl", "--show-policy"
+                };
+
+                Process proc = new ProcessBuilder(command).start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+                String policy = "";
+                String line = "";
+                while((line = reader.readLine()) != null){
+                    policy +=line+"\n";
+                    System.out.println(line+"\n");
+                }
+                proc.waitFor();
+                addPlansFromPlannerToLibrary(parseFONDSAT(policy), planLibrary, nd);
             } else {
                 logger.info("Planner not Recognized: " + planner);
                 return false;
             }
 
+
         }
 
-
-        Generator_V2 g = new Generator_V2(terms);
-        System.out.println("Generation Done");
-        g.generate((core.search.nondeterministic.Plan<Set<Literal>, Literal>) plan.get(), nd.initialBeliefs, planLibrary);
         //Reducer.reduce(planLibrary);
+
         logger.info("New planLibrary: "+planLibrary);
         for(Plan p : planLibrary.getPlans().stream().filter(e -> e.getLabel().toString().contains("Generated")).toList()){
             logger.info(p.toASString());
         }
         ts.getC().addAchvGoal(Literal.parseLiteral("act"), null);
-        nd.results().results(nd.initialBeliefs, Literal.parseLiteral("kjaoi"));
         return true;
     }
 }
