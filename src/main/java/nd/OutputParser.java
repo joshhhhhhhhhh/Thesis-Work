@@ -17,23 +17,23 @@ public class OutputParser {
         LinkedHashMap<List<Literal>, Literal> ret = new LinkedHashMap<>();
         for(int i=1; i<policy.length; i++){
             if (policy[i].startsWith("If holds: ")){
-                if(policy[i+1].split(" ")[1].equals("goal")){
-                    continue;
-                }
                 List<Literal> preds = new ArrayList<>();
                 String[] predStrings = policy[i].split(": ")[1].split("/");
                 for(String str : predStrings){
                     preds.add(Literal.parseLiteral(str.replace("\n", "").trim()));
                 }
                 String[] actionStrings = policy[i+1].split(": ")[1].split(" /")[0].split(" ");
-                String action = actionStrings + "(";
+                String action = actionStrings[0];
                 if(actionStrings.length > 1){
-                    for(String str : actionStrings){
-                        action += str + ",";
+                    action = actionStrings[0] + "(";
+
+                    for(int j=1; j<actionStrings.length; j++){
+                        action += actionStrings[j] + ",";
                     }
                     action = action.substring(0, action.length()-1);
+                    action += ")";
+
                 }
-                action += ")";
                 ret.put(preds, Literal.parseLiteral(action));
             }
         }
@@ -49,20 +49,24 @@ public class OutputParser {
 
         //Start at 1 bc the first line is useless.
         for (int i = 1; i < policy.length; i++) {
+            if(policy[i].length() == 0){
+                continue;
+            }
             if (Character.isDigit(policy[i].charAt(0))) {
                 if (preds.isEmpty()) {
                     String[] stringPreds = policy[i].replaceAll("\\)", "").replaceAll("\n", "").split("\\(");
                     //individual stringPreds is of form "clean c0"
                     for (int j = 1; j < stringPreds.length; j++) {
                         String[] stringLit = stringPreds[j].split(" ");
-                        String str = stringLit[0] + "(";
+                        String str = stringLit[0];
                         if (stringLit.length != 1) {
+                            str += "(";
                             for (int k = 1; k < stringLit.length; k++) {
                                 str += stringLit[k] + ",";
                             }
                             str = str.substring(0, str.length()-1);
+                            str += ")";
                         }
-                        str += ")";
                         preds.add(Literal.parseLiteral(str));
                     }
                 } else if (actions.isEmpty()) {
@@ -70,14 +74,15 @@ public class OutputParser {
                     //individual stringPreds is of form "clean c0"
                     for (int j = 1; j < stringPreds.length; j++) {
                         String[] stringLit = stringPreds[j].split(" ");
-                        String str = stringLit[0] + "(";
+                        String str = stringLit[0];
                         if (stringLit.length != 1) {
+                            str += "(";
                             for (int k = 1; k < stringLit.length; k++) {
                                 str += stringLit[k] + ",";
                             }
                             str = str.substring(0, str.length()-1);
+                            str += ")";
                         }
-                        str += ")";
                         actions.add(Literal.parseLiteral(str));
                     }
                 }
@@ -86,12 +91,15 @@ public class OutputParser {
                     throw new ParseException("Unable to parse MyND policy:" + policy, 1);
                 }
                 String[] str = policy[i].split(" ");
-                int numberOfPreds = Integer.parseInt(str[1]);
+                int numberOfPreds = 0;
                 int count = 0;
                 List<Literal> tempPreds = new ArrayList<>();
                 LinkedHashMap<List<Literal>, Literal> ret = new LinkedHashMap<>();
                 for (int j = 2; j < str.length; j++) {
-                    if (count == numberOfPreds) {
+                    if(count == 0){
+                        numberOfPreds = Integer.parseInt(str[j]);
+                        count++;
+                    } else if (count == numberOfPreds+1) {
                         ret.put(new ArrayList<>(tempPreds), actions.get(Integer.parseInt(str[j])));
                         tempPreds.clear();
                         count = 0;
@@ -118,26 +126,30 @@ public class OutputParser {
                 for (String pred : policy[i].split(": ")[1].replaceAll("\n", "").split(", ")) {
                     if (!pred.contains("(not (")) {
                         String[] pieces = pred.replaceAll("\\(", "").replaceAll("\\)", "").split(" ");
-                        String str = pieces[0] + "(";
+                        String str = pieces[0];
                         if (pieces.length > 1) {
+                            str += "(";
                             for (int j = 1; j < pieces.length; j++) {
                                 str += pieces[j] + ",";
                             }
                             str = str.substring(0, str.length()-1);
+                            str += ")";
+
                         }
-                        str += ")";
                         tempPreds.add(Literal.parseLiteral(str));
                     }
                 }
                 String[] action = policy[i + 1].split(": ")[1].split(" ");
-                String str = action[0] + "(";
+                String str = action[0];
                 if (action.length > 1) {
+                    str += "(";
+
                     for (int j = 1; j < action.length; j++) {
                         str += action[j] + ",";
                     }
                     str = str.substring(0, str.length()-1);
+                    str += ")";
                 }
-                str += ")";
                 ret.put(tempPreds, Literal.parseLiteral(str));
             }
         }
@@ -154,45 +166,56 @@ public class OutputParser {
         //Modes: preds, actions
         String mode = "";
         for (String str : policy) {
-            if (str.equals("Atom (CS)")) {
-                mode = "preds";
-            } else if (str.equals("(CS, Action with arguments)")) {
-                mode = "actions";
-            }
+
 
             if (mode.equals("preds") && str.startsWith("Atom")) {
                 String[] predWithState = str.split(" ");
-                String state = predWithState[2].replace("\\(", "").replace("\\)", "");
+                String state = predWithState[2].replaceAll("\\(", "").replaceAll("\\)", "");
                 if (!preds.containsKey(state)) {
                     preds.put(state, new ArrayList<>());
                 }
                 preds.get(state).add(Literal.parseLiteral(predWithState[1]));
             }
 
-            if (mode.equals("actions"))
+            if (mode.equals("actions")) {
                 if (!str.startsWith("_") && !str.startsWith("(")) {
                     break;
                 } else if (str.startsWith("(n")) {
-                    String[] action = str.replaceFirst("\\(", "").split(",");
-                    if(actions.containsKey(action[0])){
-                        String currentAction = action[1].substring(0, action[1].length()-1).replaceFirst("_DETDUP_\\d+","");
-                        if(currentAction.length() > actions.get(action[0]).length()){
+                    String[] action = str.replaceFirst("\\(", "").split(",", 2);
+                    if (actions.containsKey(action[0])) {
+                        String currentAction = action[1].substring(0, action[1].length() - 1).replaceFirst("_DETDUP_\\d+", "");
+                        if (currentAction.length() > actions.get(action[0]).length()) {
                             actions.put(action[0], currentAction);
                         }
                     } else {
-                        actions.put(action[0], action[1].substring(0, action[1].length()-1).replaceFirst("_DETDUP_\\d+",""));
+                        actions.put(action[0], action[1].substring(0, action[1].length() - 1).replaceFirst("_DETDUP_\\d+", ""));
                     }
                 }
+            }
+
+            if (str.equals("Atom (CS)")) {
+                mode = "preds";
+            } else if (str.equals("(CS, Action with arguments)")) {
+                mode = "actions";
+            }
         }
+        System.out.println("ACTIONS: " + actions);
         for(String state : actions.keySet()){
             ret.put(preds.get(state), Literal.parseLiteral(actions.get(state)));
         }
+
+        System.out.println("PREDS: " + preds);
+        System.out.println("HASHMAP: " + ret);
+
         return ret;
 
     }
 
     public static void addPlansFromPlannerToLibrary(LinkedHashMap<List<Literal>, Literal> plans, PlanLibrary lib, NonDeterministicValues nd) throws jason.asSyntax.parser.ParseException, JasonException {
         for(List<Literal> contextList : plans.keySet()){
+
+
+
             Trigger trigger = new Trigger(Trigger.TEOperator.add, Trigger.TEType.achieve, Literal.parseLiteral("act"));
 
             String contextString = "";
@@ -202,11 +225,24 @@ public class OutputParser {
             LogicalFormula context = ASSyntax.parseFormula(contextString.substring(0,contextString.length()-3));
 
 
+            if(plans.get(contextList).toString().equals("goal")){
+                PlanBodyImpl body = new PlanBodyImpl();
+                Random r = new Random();
+
+                String label = "Generated" + String.valueOf(r.nextDouble());
+
+                jason.asSyntax.Plan p = new jason.asSyntax.Plan(new Pred(label),trigger,context,body);
+                lib.add(p);
+                continue;
+            }
+
             Literal action = plans.get(contextList);
             Literal newLiteral = null;
             for(Plan op : nd.operators){
-                if(op.getTrigger().getLiteral().getFunctor().equals(action.getFunctor())){
-                    newLiteral = Literal.parseLiteral(action.getFunctor().replace(op.getLabel().getFunctor(), ""));
+                //System.out.println("ACTION LIT: "+ action + " OP LIT: " + op.getTrigger().getLiteral().getFunctor());
+                if(op.getTrigger().getLiteral().getFunctor().equalsIgnoreCase(action.getFunctor())){
+                    newLiteral = Literal.parseLiteral(action.getFunctor().toLowerCase().replace(op.getLabel().getFunctor().toLowerCase(), ""));
+                    //System.out.println("ADDING PLAN LIT: "+ newLiteral.toString());
                     if(!op.getTrigger().getLiteral().hasTerm()){
                        continue;
                     }

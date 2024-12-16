@@ -93,7 +93,13 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             g.generate((core.search.nondeterministic.Plan<Set<Literal>, Literal>) plan.get(), nd.initialBeliefs, planLibrary);
         } else {
             for(Plan op : nd.operators){
-                op.getTrigger().setLiteral(Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor()+op.getLabel().getFunctor()));
+                Literal lit = Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor()+op.getLabel().getFunctor());
+                if(op.getTrigger().getLiteral().hasTerm()){
+                    for(Term term : op.getTrigger().getLiteral().getTerms()){
+                        lit.addTerm(term);
+                    }
+                }
+                op.getTrigger().setLiteral(lit);
             }
             AgentSpeakToPDDL agentSpeakToPDDL = new AgentSpeakToPDDL();
             agentSpeakToPDDL.generatePDDL(nd);
@@ -101,16 +107,28 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
 
         if(planner.equals("prp")) {
             command = new String[] {
-                    "prp",  "domain.pddl", "task.pddl", "--dump-policy", "2"
+                    "prp","domain.pddl", "task.pddl", "--dump-policy", "2"
+                    //,"&&", "python2",  "../PLANNERS/prp/prp-scripts/translate_policy.py"
             };
 
-            Process proc = new ProcessBuilder(command).start();
-            proc.waitFor();
+            Process proc1 = new ProcessBuilder(command).start();
 
-            command = new String[] {
-                    "python2",  "../PLANNERS/prp/prp-scripts/translate_policy.py"
+            BufferedReader reader1 = new BufferedReader(new InputStreamReader(proc1.getInputStream()));
+
+            //String policy1 = "";
+            String line1 = "";
+            while((line1 = reader1.readLine()) != null){
+                //policy1 +=line1+"\n";
+                System.out.println(line1+"\n");
+            }
+
+            proc1.waitFor();
+            proc1.destroy();
+
+            String[] command2 = new String[] {
+                    "python2",  "/PLANNERS/prp/prp-scripts/translate_policy.py"
             };
-            proc = new ProcessBuilder(command).start();
+            Process proc = new ProcessBuilder(command2).start();
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
@@ -119,6 +137,12 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             while((line = reader.readLine()) != null){
                 policy +=line+"\n";
                 System.out.println(line+"\n");
+            }
+            // Reading the error output
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+            String errorLine = "";
+            while((errorLine = errorReader.readLine()) != null){
+                System.out.println("Error: " + errorLine);
             }
             proc.waitFor();
             addPlansFromPlannerToLibrary(parsePRP(policy), planLibrary, nd);

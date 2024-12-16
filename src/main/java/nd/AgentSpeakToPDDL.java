@@ -57,6 +57,7 @@ public class AgentSpeakToPDDL {
 
         //Adds Actions :)
         for(Plan op : nd.operators){
+            System.out.println("LITERAL: " + op.getTrigger().getLiteral());
             List<String> actionVariables = op.getTrigger().getLiteral().getTerms().stream().map(Object::toString).toList();
             List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
 
