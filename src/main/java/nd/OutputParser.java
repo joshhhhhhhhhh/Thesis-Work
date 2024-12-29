@@ -13,14 +13,14 @@ public class OutputParser {
     }
 
     public static LinkedHashMap<List<Literal>, Literal> parsePRP(String out) throws ParseException {
-        String[] policy = out.split("Policy:")[1].split("\n");
+        String[] policy = out.split("Policy:")[1].replaceAll("strong_negate_", "~").split("\n");
         LinkedHashMap<List<Literal>, Literal> ret = new LinkedHashMap<>();
-        for(int i=1; i<policy.length; i++){
-            if (policy[i].startsWith("If holds: ")){
+        for(int i=1; i<policy.length-1; i++){
+            if (policy[i].startsWith("If holds: ") && policy[i+1].startsWith("Execute")){
                 List<Literal> preds = new ArrayList<>();
                 String[] predStrings = policy[i].split(": ")[1].split("/");
                 for(String str : predStrings){
-                    preds.add(Literal.parseLiteral(str.replace("\n", "").trim()));
+                    preds.add(Literal.parseLiteral(str.replace("\n", "").replace("()", "").trim()));
                 }
                 String[] actionStrings = policy[i+1].split(": ")[1].split(" /")[0].split(" ");
                 String action = actionStrings[0];
@@ -42,7 +42,7 @@ public class OutputParser {
 
 
     public static LinkedHashMap<List<Literal>, Literal> parseMyND(String out) throws ParseException {
-        String[] policy = out.split("Number of sensing applications in policy")[1].split("\n");
+        String[] policy = out.split("Number of sensing applications in policy")[1].replaceAll("strong_negate_", "~").split("\n");
 
         List<Literal> preds = new ArrayList<>();
         List<Literal> actions = new ArrayList<>();
@@ -54,7 +54,7 @@ public class OutputParser {
             }
             if (Character.isDigit(policy[i].charAt(0))) {
                 if (preds.isEmpty()) {
-                    String[] stringPreds = policy[i].replaceAll("\\)", "").replaceAll("\n", "").split("\\(");
+                    String[] stringPreds = policy[i].replaceAll("\\)", "").replaceAll("\n", "").replaceAll("\\(\\)", "").split("\\(");
                     //individual stringPreds is of form "clean c0"
                     for (int j = 1; j < stringPreds.length; j++) {
                         String[] stringLit = stringPreds[j].split(" ");
@@ -70,7 +70,7 @@ public class OutputParser {
                         preds.add(Literal.parseLiteral(str));
                     }
                 } else if (actions.isEmpty()) {
-                    String[] stringPreds = policy[i].replaceAll("\\)", "").replaceAll("\n", "").split("\\(");
+                    String[] stringPreds = policy[i].replaceAll("\\)", "").replaceAll("\n", "").replaceAll("\\(\\)", "").split("\\(");
                     //individual stringPreds is of form "clean c0"
                     for (int j = 1; j < stringPreds.length; j++) {
                         String[] stringLit = stringPreds[j].split(" ");
@@ -115,7 +115,7 @@ public class OutputParser {
     }
 
     public static LinkedHashMap<List<Literal>, Literal> parsePaladinus(String out) throws ParseException {
-        String[] policy = out.split("# Policy:")[1].split("\n");
+        String[] policy = out.split("# Policy:")[1].replaceAll("\\(\\)", "").replaceAll("strong_negate_", "~").split("\n");
         LinkedHashMap<List<Literal>, Literal> ret = new LinkedHashMap<>();
         for (int i = 0; i < policy.length; i++) {
             if (policy[i].startsWith("If holds:")) {
@@ -157,7 +157,7 @@ public class OutputParser {
     }
 
     public static LinkedHashMap<List<Literal>, Literal> parseFONDSAT(String out) throws ParseException {
-        String[] policy = out.split("\n");
+        String[] policy = out.replaceAll("\\(\\)", "").replaceAll("strong_negate_", "~").split("\n");
         Map<String, List<Literal>> preds = new HashMap<>();
 
         //{n0 : right(c0)}
@@ -253,7 +253,6 @@ public class OutputParser {
                                 if(op.getTrigger().getLiteral().getTerms().get(i).toString().equals(lit.getTerm(0).toString()) && !lit.getTerm(2).toString().equals("temp")){
                                     newLiteral.addTerm(action.getTerm(i));
                                 }
-                                break;
                             }
                         }
                     }

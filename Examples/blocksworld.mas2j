@@ -1,0 +1,7 @@
+MAS tireworld {
+
+        environment: nd.BlocksworldEnvironment()
+
+        agents: blocksworldFOND;
+        aslSourcePath: "Examples";
+}

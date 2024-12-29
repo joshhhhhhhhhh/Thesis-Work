@@ -1,0 +1,7 @@
+MAS tireworld {
+
+        environment: nd.TireWorldEnvironment()
+
+        agents: tireWorldAgent;
+        aslSourcePath: "Examples";
+}

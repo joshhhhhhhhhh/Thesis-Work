@@ -69,6 +69,7 @@ public class NonDeterministicValues {
         this.operators = operators;
         this.goalState = new HashSet<Term>(goalState);
         this.actions = setActions();
+
         //this.initialValues = ???
     }
 
@@ -268,7 +269,6 @@ public class NonDeterministicValues {
 
     public ResultsFunction<Set<Literal>, Literal> results() {
         return (Set<Literal> state, Literal action) -> {
-
             List<Plan> viableOperators = new ArrayList<>();
             /*List<Set<Literal>> validStates = new ArrayList<>();
             for(HashMap<VarTerm, Term> potentialState : allPossibleVarCombinations){
@@ -281,22 +281,22 @@ public class NonDeterministicValues {
                 List<Term> tempAnnots = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
                 //List<VarTerm> tempVariables = op.getTrigger().getLiteral().getTerms().stream().map(t -> (VarTerm)t).toList();
 
-                List<Term> types = new ArrayList<>();
+                List<Term> notMandatoryTypes = new ArrayList<>();
                 List<VarTerm> mandatoryVars = new ArrayList<>();
                 List<VarTerm> notMandatoryVars = new ArrayList<>();
 
                 for(Term var : tempAnnots) {
                     Literal lit = (Literal) var;
-                    types.add(lit.getTerm(1));
                     if (!lit.getTerm(2).toString().equals("temp")) {
                         mandatoryVars.add((VarTerm) lit.getTerm(0));
                     } else {
                         notMandatoryVars.add((VarTerm) lit.getTerm(0));
+                        notMandatoryTypes.add(lit.getTerm(1));
                     }
                 }
-                System.out.println("TYPES: " + types);
-                System.out.println("Mandatory TYpes: " + mandatoryVars);
-                System.out.println("NonMandatoryTypes: " + notMandatoryVars);
+                //System.out.println("TYPES: " + notMandatoryTypes);
+                //System.out.println("Mandatory TYpes: " + mandatoryVars);
+                //System.out.println("NonMandatoryTypes: " + notMandatoryVars);
 
                 /*for(int i=0; i<tempVariables.size();i++){
                     if(!tempTypes.get(i).toString().contains("temp")){
@@ -309,39 +309,54 @@ public class NonDeterministicValues {
                 }*/
 
                 List<Term> values = action.getTerms();
+                List<Term> allVars = op.getTrigger().getLiteral().getTerms();
                 Unifier unifier = new Unifier();
                 if(values != null){
                     for(int i=0; i<values.size(); i++){
-                        unifier.bind(mandatoryVars.get(i), values.get(i));
+                        if(mandatoryVars.contains((VarTerm) allVars.get(i))){
+                            unifier.bind((VarTerm)allVars.get(i), values.get(i));
+                        }
                     }
                 }
                 LogicalFormula context = op.getContext();
                 Term semiUnifiedContext = context.capply(unifier);
 
                 List<Map<VarTerm, Term>> allPossibleVarCombinations = new ArrayList<>();
-                nestedLoop(0, types, notMandatoryVars, null, allPossibleVarCombinations);
+                if(!notMandatoryVars.isEmpty()){
+                    nestedLoop(0, notMandatoryTypes, notMandatoryVars, null, allPossibleVarCombinations);
+                }
 
-                Unifier finalUnifier = null;
-                for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
-                    Unifier tempUnifier = new Unifier();
-                    for(VarTerm key : combination.keySet()){
-                        tempUnifier.bind(key, combination.get(key));
+                boolean contextEvaluated = false;
+                if(allPossibleVarCombinations.isEmpty()){
+                    if(EvaluateExpression(semiUnifiedContext, state)) {
+                        //System.out.println(state + " | " + unifiedContext + " | " + t);
+                        contextEvaluated = true;
                     }
-
-                    Term unifiedContext = semiUnifiedContext.capply(tempUnifier);
-                    try{
-                        if(EvaluateExpression(unifiedContext, state)) {
-                            //System.out.println(state + " | " + unifiedContext);
-                            finalUnifier = tempUnifier;
-                            break;
+                } else {
+                    for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
+                        Unifier tempUnifier = new Unifier();
+                        for(VarTerm key : combination.keySet()){
+                            tempUnifier.bind(key, combination.get(key));
                         }
-                    } catch (JasonException e){
-                        e.printStackTrace();
+
+                        Term unifiedContext = semiUnifiedContext.capply(tempUnifier);
+                        try{
+                            if(EvaluateExpression(unifiedContext, state)) {
+                                //System.out.println(state + " | " + unifiedContext + " | " + t);
+                                unifier.compose(tempUnifier);
+                                contextEvaluated = true;
+                                break;
+                            }
+                        } catch (JasonException e){
+                            e.printStackTrace();
+                        }
                     }
                 }
 
-                if(finalUnifier == null)
+                if(!contextEvaluated)
                     continue;
+                System.out.println("ACTION: " + action);
+
                 /*
                 List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
 
@@ -458,7 +473,7 @@ public class NonDeterministicValues {
                     for (Literal b : state){
                         s.add((Literal) b.clone());
                     }
-                    Term unifiedWorld = curr.getBodyTerm().capply(finalUnifier);
+                    Term unifiedWorld = curr.getBodyTerm().capply(unifier);
                     try {
                         applyExprToState(unifiedWorld, s, true);
                     } catch (JasonException e) {

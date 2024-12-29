@@ -103,10 +103,10 @@ public class ErraticVacuumEnv extends Environment {
         clearPercepts();
 
         //adding preds
-        addPercept(Literal.parseLiteral("predicate(clean, cell)"));
-        addPercept(Literal.parseLiteral("predicate(dirty, cell)"));
-        addPercept(Literal.parseLiteral("predicate(pos, cell)"));
-        addPercept(Literal.parseLiteral("predicate(linked, cell, cell)"));
+        //addPercept(Literal.parseLiteral("predicate(clean, cell)"));
+        //addPercept(Literal.parseLiteral("predicate(dirty, cell)"));
+        //addPercept(Literal.parseLiteral("predicate(pos, cell)"));
+        //addPercept(Literal.parseLiteral("predicate(linked, cell, cell)"));
 
 
 

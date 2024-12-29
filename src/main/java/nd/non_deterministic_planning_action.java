@@ -71,6 +71,8 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
         System.out.println("GOALS: " + nd.goalState);
         System.out.println("OPERATORS(" + nd.operators.size() + "): " + nd.operators);
         System.out.println("OBJECTS: " + nd.objects);
+        System.out.println("ACTIONs: " + nd.actions);
+
 
         Map<String, List<Term>> terms = new HashMap<>();
         Optional plan;
@@ -89,6 +91,16 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 terms.put(op.getTrigger().getLiteral().getFunctor(), types);
             }
             Generator_V2 g = new Generator_V2(terms);
+
+            System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block6, block7)")));
+            System.out.println("PICKUPFROMTABLE: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickupfromtable(block9)")));
+            System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktower(block6, block7, block0)")));
+            System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktower(block6, block7, block1)")));
+            //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
+            //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
+            //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
+
+
             System.out.println("Generation Done");
             g.generate((core.search.nondeterministic.Plan<Set<Literal>, Literal>) plan.get(), nd.initialBeliefs, planLibrary);
         } else {
@@ -117,10 +129,10 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
 
             //String policy1 = "";
             String line1 = "";
-            while((line1 = reader1.readLine()) != null){
+            //while((line1 = reader1.readLine()) != null){
                 //policy1 +=line1+"\n";
-                System.out.println(line1+"\n");
-            }
+                //System.out.println(line1+"\n");
+            //}
 
             proc1.waitFor();
             proc1.destroy();
@@ -136,13 +148,13 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             String line = "";
             while((line = reader.readLine()) != null){
                 policy +=line+"\n";
-                System.out.println(line+"\n");
+                //System.out.println(line+"\n");
             }
             // Reading the error output
             BufferedReader errorReader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
             String errorLine = "";
             while((errorLine = errorReader.readLine()) != null){
-                System.out.println("Error: " + errorLine);
+                System.out.println("*********Error: " + errorLine);
             }
             proc.waitFor();
             addPlansFromPlannerToLibrary(parsePRP(policy), planLibrary, nd);
@@ -184,7 +196,7 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 String line = "";
                 while((line = reader.readLine()) != null){
                     policy +=line+"\n";
-                    System.out.println(line+"\n");
+                    //System.out.println(line+"\n");
                 }
                 proc.waitFor();
                 addPlansFromPlannerToLibrary(parsePaladinus(policy), planLibrary, nd);
@@ -202,7 +214,7 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 String line = "";
                 while((line = reader.readLine()) != null){
                     policy +=line+"\n";
-                    System.out.println(line+"\n");
+                    //System.out.println(line+"\n");
                 }
                 proc.waitFor();
                 addPlansFromPlannerToLibrary(parseFONDSAT(policy), planLibrary, nd);

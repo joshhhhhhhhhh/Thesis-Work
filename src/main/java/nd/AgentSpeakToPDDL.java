@@ -58,7 +58,12 @@ public class AgentSpeakToPDDL {
         //Adds Actions :)
         for(Plan op : nd.operators){
             System.out.println("LITERAL: " + op.getTrigger().getLiteral());
-            List<String> actionVariables = op.getTrigger().getLiteral().getTerms().stream().map(Object::toString).toList();
+            List<String> actionVariables;
+            if(op.getTrigger().getLiteral().hasTerm()){
+                actionVariables = op.getTrigger().getLiteral().getTerms().stream().map(Object::toString).toList();
+            } else {
+                actionVariables = Collections.emptyList();
+            }
             List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->t.toString().contains("type(")).toList();
 
             Map<String, String> paramsWithTypes = new HashMap<>();
@@ -118,21 +123,28 @@ public class AgentSpeakToPDDL {
         for(Literal bel : nd.initialBeliefs) {
             Expression init = new Expression(Connector.ATOM);
             init.setSymbol(new Symbol(SymbolType.PREDICATE, bel.getFunctor()));
-            for (Term term : bel.getTerms()){
-                init.addArgument(new Symbol(SymbolType.CONSTANT, term.toString()));
-            }
-            if(!this.predicates.containsKey(bel.getFunctor())){
-                List<String> types = new ArrayList<>();
+            if(bel.hasTerm()){
                 for (Term term : bel.getTerms()){
-                    for(TypedSymbol object : problem.getObjects()){
-                        if(term.toString().equals(object.getValue().toString())){
-                            types.add(object.getTypes().get(0).toString());
-                            break;
+                    init.addArgument(new Symbol(SymbolType.CONSTANT, term.toString()));
+                }
+                if(!this.predicates.containsKey(bel.getFunctor())){
+                    List<String> types = new ArrayList<>();
+                    for (Term term : bel.getTerms()){
+                        for(TypedSymbol object : problem.getObjects()){
+                            if(term.toString().equals(object.getValue().toString())){
+                                types.add(object.getTypes().get(0).toString());
+                                break;
+                            }
                         }
                     }
+                    predicates.put(bel.getFunctor(), types);
                 }
-                predicates.put(bel.getFunctor(), types);
+            } else {
+                if(!this.predicates.containsKey(bel.getFunctor())){
+                    predicates.put(bel.getFunctor(), Collections.emptyList());
+                }
             }
+
             problem.addInitialFact(init);
         }
 
@@ -164,6 +176,7 @@ public class AgentSpeakToPDDL {
             del += outCharArray[i];
         }
         domainOut = domainOut.replace(del, "");
+        domainOut = domainOut.replaceAll("~", "strong_negate_");
 
         String problemOut = "(define (problem p1)\n(:domain d1)\n(:objects\n";
         for(TypedSymbol t : problem.getObjects()){
@@ -176,10 +189,13 @@ public class AgentSpeakToPDDL {
         problemOut+=")\n(:goal\n";
         problemOut+=problem.getGoal().toString();
         problemOut+="\n))";
+        problemOut = problemOut.replaceAll("~", "_strong_negate_");
+
 
 
         //Creating Domain File
         try{
+            System.out.println(domainOut);
             File domainFile = new File("domain.pddl");
             domainFile.createNewFile();
             FileWriter writer = new FileWriter("domain.pddl");
@@ -191,8 +207,9 @@ public class AgentSpeakToPDDL {
 
         //Creating Problem File
         try{
-            File domainFile = new File("task.pddl");
-            domainFile.createNewFile();
+            System.out.println(problemOut);
+            File problemFile = new File("task.pddl");
+            problemFile.createNewFile();
             FileWriter writer = new FileWriter("task.pddl");
             writer.write(problemOut);
             writer.close();
