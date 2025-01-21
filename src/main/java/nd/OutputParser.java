@@ -226,7 +226,7 @@ public class OutputParser {
 
 
             if(plans.get(contextList).toString().equals("goal")){
-                PlanBodyImpl body = new PlanBodyImpl();
+                PlanBodyImpl body = new PlanBodyImpl(PlanBody.BodyType.action, Literal.parseLiteral(".fail"));
                 Random r = new Random();
 
                 String label = "Generated" + String.valueOf(r.nextDouble());

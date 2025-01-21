@@ -10,30 +10,22 @@
 !des.
 +!des : desires(Goals) <-
     .print("Goals to plan: ", Goals);
-    nd.non_deterministic_planning_action(Goals, mynd);
+    nd.non_deterministic_planning_action(Goals, prp);
     +start(system.time).
 
-@action1[celltemp] +!suck(X) : pos(X) & dirty(X) & X == C4 <-
-    (not dirty(X)) & clean(X) & (not dirty(X-1)) & clean(X-1);
+@action1[type(X, cell, temp), type(Y, cell, temp)] +!suck(X) : pos(X) & dirty(X) & not pos(Y) <-
+    (not dirty(X)) & clean(X) & (not dirty(Y)) & clean(Y);
     (not dirty(X)) & clean(X).
 
-@action2[celltemp] +!suck(X) : pos(X) & dirty(X) & X == 0 <-
-    (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1);
-    (not dirty(X)) & clean(X).
-
-@action3[celltemp] +!suck(X) : pos(X) & dirty(X) & X \== 0 & X \== 4 <-
-    (not dirty(X)) & clean(X) & (not dirty(X+1)) & clean(X+1) & (not dirty(X-1)) & clean(X-1);
-    (not dirty(X)) & clean(X).
-
-@action4[celltemp] +!suck(X) : pos(X) & clean(X) <-
+@action2[type(X, cell, temp)] +!suck(X) : pos(X) & clean(X) <-
     dirty(X) & (not clean(X));
     None.
 
-@action5[celltemp] +!right(X) : pos(X) & X \== 4 <-
-    pos(X+1) & not pos(X).
+@action3[type(X, cell, temp)] +!right(X) : pos(X) & linked(X, c1) <-
+    pos(c1) & not pos(X).
 
-@action6[celltemp] +!left(X) : pos(X) & X \== 0 <-
-    pos(X-1) & not pos(X).
+@action4[type(X, cell, temp)] +!left(X) : pos(X) & linked(c0, X) <-
+    pos(c0) & not pos(X).
 
 -!act : start(X) <-
     .print("TIME TAKEN: ", system.time - X).

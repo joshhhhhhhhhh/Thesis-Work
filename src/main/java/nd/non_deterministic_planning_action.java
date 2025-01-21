@@ -44,6 +44,12 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             planner = "default";
         }
 
+        // Time
+         double start = System.currentTimeMillis();
+        //Memory
+        //System.gc();
+        //double start = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
         Set<Term> goals = new HashSet<Term>(listTerm.getAsList());
 
         //Extract the literals in the belief base to be used
@@ -71,11 +77,18 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
         System.out.println("GOALS: " + nd.goalState);
         System.out.println("OPERATORS(" + nd.operators.size() + "): " + nd.operators);
         System.out.println("OBJECTS: " + nd.objects);
-        System.out.println("ACTIONs: " + nd.actions);
+        //System.out.println("ACTIONs: " + nd.actions);
 
 
         Map<String, List<Term>> terms = new HashMap<>();
         Optional plan;
+        // Time
+        double afterStep1 = System.currentTimeMillis();
+        //Memory
+        //System.gc();
+        //double afterStep1 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+        double afterStep2;
         if(planner.equals("default")){
             NondeterministicProblem problem = new NondeterministicProblem(
                     nd.initialBeliefs,
@@ -85,17 +98,24 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             AndOrSearch<List<Literal>, Literal> search = new AndOrSearch<>();
             System.out.println("Setup Done");
             plan = search.search(problem);
+
+            //Time
+            afterStep2 = System.currentTimeMillis();
+            //Memory
+            //System.gc();
+            //double afterStep1 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
             System.out.println("Search Done");
             for(Plan op : nd.operators){
                 List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
                 terms.put(op.getTrigger().getLiteral().getFunctor(), types);
             }
-            Generator_V2 g = new Generator_V2(terms);
+            Generator_V2 g = new Generator_V2(terms, nd.operators);
 
-            System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block6, block7)")));
-            System.out.println("PICKUPFROMTABLE: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickupfromtable(block9)")));
-            System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktower(block6, block7, block0)")));
-            System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktower(block6, block7, block1)")));
+            //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickupaction1(block0)")));
+            //System.out.println("PICKUPFROMTABLE: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickupfromtableaction2(block1)")));
+            //System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktoweraction5(block2)")));
+            //System.out.println("PICKTOWER: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("picktoweraction5(block3)")));
             //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
             //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
             //System.out.println("PICKUP: " + nd.results().results(nd.initialBeliefs, Literal.parseLiteral("pickup(block1)")));
@@ -104,62 +124,62 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
             System.out.println("Generation Done");
             g.generate((core.search.nondeterministic.Plan<Set<Literal>, Literal>) plan.get(), nd.initialBeliefs, planLibrary);
         } else {
-            for(Plan op : nd.operators){
-                Literal lit = Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor()+op.getLabel().getFunctor());
-                if(op.getTrigger().getLiteral().hasTerm()){
-                    for(Term term : op.getTrigger().getLiteral().getTerms()){
-                        lit.addTerm(term);
-                    }
-                }
-                op.getTrigger().setLiteral(lit);
-            }
+
             AgentSpeakToPDDL agentSpeakToPDDL = new AgentSpeakToPDDL();
             agentSpeakToPDDL.generatePDDL(nd);
             String[] command;
 
-        if(planner.equals("prp")) {
-            command = new String[] {
-                    "prp","domain.pddl", "task.pddl", "--dump-policy", "2"
-                    //,"&&", "python2",  "../PLANNERS/prp/prp-scripts/translate_policy.py"
-            };
+            if(planner.equals("prp")) {
+                command = new String[] {
+                        "prp","domain.pddl", "task.pddl", "--dump-policy", "2"
+                        //,"&&", "python2",  "../PLANNERS/prp/prp-scripts/translate_policy.py"
+                };
 
-            Process proc1 = new ProcessBuilder(command).start();
+                Process proc1 = new ProcessBuilder(command).start();
 
-            BufferedReader reader1 = new BufferedReader(new InputStreamReader(proc1.getInputStream()));
+                BufferedReader reader1 = new BufferedReader(new InputStreamReader(proc1.getInputStream()));
 
-            //String policy1 = "";
-            String line1 = "";
-            //while((line1 = reader1.readLine()) != null){
-                //policy1 +=line1+"\n";
-                //System.out.println(line1+"\n");
-            //}
+                //String policy1 = "";
+                String line1 = "";
+                //while((line1 = reader1.readLine()) != null){
+                    //policy1 +=line1+"\n";
+                    //System.out.println(line1+"\n");
+                //}
 
-            proc1.waitFor();
-            proc1.destroy();
+                proc1.waitFor();
+                proc1.destroy();
 
-            String[] command2 = new String[] {
-                    "python2",  "/PLANNERS/prp/prp-scripts/translate_policy.py"
-            };
-            Process proc = new ProcessBuilder(command2).start();
+                String[] command2 = new String[] {
+                        "python2",  "/PLANNERS/prp/prp-scripts/translate_policy.py"
+                };
+                Process proc = new ProcessBuilder(command2).start();
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
-            String policy = "";
-            String line = "";
-            while((line = reader.readLine()) != null){
-                policy +=line+"\n";
-                //System.out.println(line+"\n");
-            }
-            // Reading the error output
-            BufferedReader errorReader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
-            String errorLine = "";
-            while((errorLine = errorReader.readLine()) != null){
-                System.out.println("*********Error: " + errorLine);
-            }
-            proc.waitFor();
-            addPlansFromPlannerToLibrary(parsePRP(policy), planLibrary, nd);
+                String policy = "";
+                String line = "";
+                while((line = reader.readLine()) != null){
+                    policy +=line+"\n";
+                    System.out.println(line+"\n");
+                }
+                // Reading the error output
+                BufferedReader errorReader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+                String errorLine = "";
+                while((errorLine = errorReader.readLine()) != null){
+                    System.out.println("*********Error: " + errorLine);
+                }
+                proc.waitFor();
 
-        } else if(planner.equals("mynd")){
+                //Time
+                afterStep2 = System.currentTimeMillis();
+                //Memory
+                //System.gc();
+                //double afterStep2 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+
+                addPlansFromPlannerToLibrary(parsePRP(policy), planLibrary, nd);
+
+            } else if(planner.equals("mynd")){
                 /*command = new String[]{
                      "python", "../MyNDPlanner/translator-fond/translate.py", "domain.pddl", "task.pddl",
                         "&&", "java", "../MyNDPlanner/src/mynd.MyNDPlanner", "-dumpPlan",
@@ -178,9 +198,16 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 String line = "";
                 while((line = reader.readLine()) != null){
                     policy +=line+"\n";
-                    System.out.println(line+"\n");
+                    //System.out.println(line+"\n");
                 }
                 proc.waitFor();
+
+                //Time
+                afterStep2 = System.currentTimeMillis();
+                //Memory
+                //System.gc();
+                //double afterStep2 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
                 addPlansFromPlannerToLibrary(parseMyND(policy), planLibrary, nd);
 
             } else if(planner.equals("paladinus")) {
@@ -196,9 +223,17 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 String line = "";
                 while((line = reader.readLine()) != null){
                     policy +=line+"\n";
-                    //System.out.println(line+"\n");
+                    System.out.println(line+"\n");
                 }
                 proc.waitFor();
+
+                //Time
+                afterStep2 = System.currentTimeMillis();
+                //Memory
+                //System.gc();
+                //double afterStep2 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+
                 addPlansFromPlannerToLibrary(parsePaladinus(policy), planLibrary, nd);
 
             } else if(planner.equals("fondsat")) {
@@ -214,9 +249,17 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
                 String line = "";
                 while((line = reader.readLine()) != null){
                     policy +=line+"\n";
-                    //System.out.println(line+"\n");
+                    System.out.println(line+"\n");
                 }
                 proc.waitFor();
+
+                //Time
+                afterStep2 = System.currentTimeMillis();
+                //Memory
+                //System.gc();
+                //double afterStep2 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+
+
                 addPlansFromPlannerToLibrary(parseFONDSAT(policy), planLibrary, nd);
             } else {
                 logger.info("Planner not Recognized: " + planner);
@@ -226,13 +269,27 @@ public class non_deterministic_planning_action extends DefaultInternalAction {
 
         }
 
-        //Reducer.reduce(planLibrary);
+        //Time
+        double afterStep3 = System.currentTimeMillis();
+        //Memory
+        //System.gc();
+        //double afterStep3 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
+        if(!planner.equals("prp")) {
+            Reducer.reduce(planLibrary);
+        }
+        //Time
+        double afterStep4 = System.currentTimeMillis();
+        //Memory
+        //System.gc();
+        //double afterStep4 = (Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/1024.0/1024.0;
 
-        logger.info("New planLibrary: "+planLibrary);
+
+        //logger.info("New planLibrary: "+planLibrary);
         for(Plan p : planLibrary.getPlans().stream().filter(e -> e.getLabel().toString().contains("Generated")).toList()){
             logger.info(p.toASString());
         }
         ts.getC().addAchvGoal(Literal.parseLiteral("act"), null);
+        logger.info("PLANNER: " + planner + "\nSTEP 1: " + (afterStep1-start) + "\nSTEP 2: " + (afterStep2-afterStep1) + "\nSTEP 3: " + (afterStep3-afterStep2) + "\nSTEP 4: " + (afterStep4-afterStep3) + "\nTOTAL: " + (afterStep4-start));
         return true;
     }
 }

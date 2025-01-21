@@ -14,8 +14,8 @@
     nd.non_deterministic_planning_action(Goals, prp);
     +start(system.time).
 
-@action1[type(X, cell, temp)] +!suck(X) : pos(X) & dirty(X) & linked(c3, X) <-
-    (not dirty(X)) & clean(X) & (not dirty(c3)) & clean(c3);
+@action1[type(X, cell, temp)] +!suck(X) : pos(X) & dirty(X) & linked(c48, X) <-
+    (not dirty(X)) & clean(X) & (not dirty(c48)) & clean(c48);
     (not dirty(X)) & clean(X).
 
 @action2[type(X, cell, temp)] +!suck(X) : pos(X) & dirty(X) & linked(X, c1) <-

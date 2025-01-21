@@ -19,7 +19,7 @@ public class BlocksworldEnvironment extends Environment {
 
     List<Block> blocks;
     Block table;
-    int NUM_BLOCKS = 10;
+    int NUM_BLOCKS =4;
     Block holding;
 
 
@@ -32,16 +32,21 @@ public class BlocksworldEnvironment extends Environment {
         }
         this.table = new Block("table", true);
 
-        blocks.get(0).setBelow(blocks.get(4));
-        blocks.get(1).setBelow(blocks.get(8));
-        blocks.get(2).setBelow(this.table);
-        blocks.get(3).setBelow(blocks.get(5));
-        blocks.get(4).setBelow(blocks.get(1));
-        blocks.get(5).setBelow(this.table);
-        blocks.get(6).setBelow(blocks.get(7));
-        blocks.get(7).setBelow(blocks.get(0));
-        blocks.get(8).setBelow(blocks.get(2));
-        blocks.get(9).setBelow(this.table);
+        blocks.get(0).setBelow(blocks.get(2));
+        blocks.get(1).setBelow(this.table);
+        blocks.get(2).setBelow(blocks.get(3));
+        blocks.get(3).setBelow(this.table);
+
+        //blocks.get(0).setBelow(blocks.get(4));
+        //blocks.get(1).setBelow(blocks.get(8));
+        //blocks.get(2).setBelow(this.table);
+        //blocks.get(3).setBelow(blocks.get(5));
+        //blocks.get(4).setBelow(blocks.get(1));
+        //blocks.get(5).setBelow(this.table);
+        //blocks.get(6).setBelow(blocks.get(7));
+        //blocks.get(7).setBelow(blocks.get(0));
+        //blocks.get(8).setBelow(blocks.get(2));
+        //blocks.get(9).setBelow(this.table);
 
         updatePercepts();
     }
@@ -221,6 +226,17 @@ public class BlocksworldEnvironment extends Environment {
 
         Literal[] goal = new Literal[]{
                 Literal.parseLiteral("emptyhand"),
+                Literal.parseLiteral("ontable(block0)"),
+                Literal.parseLiteral("on(block1, block3)"),
+                Literal.parseLiteral("on(block2, block0)"),
+                Literal.parseLiteral("ontable(block3)"),
+                Literal.parseLiteral("clear(block1)"),
+                Literal.parseLiteral("clear(block2)")
+        };
+
+/*
+        Literal[] goal = new Literal[]{
+                Literal.parseLiteral("emptyhand"),
                 Literal.parseLiteral("on(block0, block9)"),
                 Literal.parseLiteral("on(block1, block5)"),
                 Literal.parseLiteral("on(block2, block7)"),
@@ -236,12 +252,14 @@ public class BlocksworldEnvironment extends Environment {
                 Literal.parseLiteral("clear(block8)")
         };
 
+ */
+
         addPercept(Literal.parseLiteral("desires(" + Arrays.toString(goal) + ")"));
 
         boolean goalReached = true;
         for(Literal g : goal){
             if(!containsPercept(g)){
-                logger.info("Goal not reached, missing belief: " + g.toString());
+                //logger.info("Goal not reached, missing belief: " + g.toString());
                 goalReached = false;
             }
         }

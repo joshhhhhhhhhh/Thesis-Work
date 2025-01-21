@@ -13,9 +13,11 @@ public class Generator_V2 {
     static final String TEMP_STRING = "temp";
     Map<String, List<Term>> terms;
     Set<LogicalFormula> usedContexts;
-    public Generator_V2(Map<String, List<Term>> terms){
+    List<jason.asSyntax.Plan> operators;
+    public Generator_V2(Map<String, List<Term>> terms, List<jason.asSyntax.Plan> operators){
         this.terms = terms;
         this.usedContexts = new HashSet<>();
+        this.operators = operators;
     }
 
     public void generate(Plan<Set<Literal>, Literal> root, Set<Literal> initialState, PlanLibrary library){
@@ -55,7 +57,21 @@ public class Generator_V2 {
 
         Trigger trigger = new Trigger(Trigger.TEOperator.add, Trigger.TEType.achieve, Literal.parseLiteral("act"));
 
-        PlanBodyImpl body = new PlanBodyImpl(PlanBody.BodyType.action, plan.getAction(0));
+
+        Literal action = plan.getAction(0);
+        Literal newLiteral = null;
+        for(jason.asSyntax.Plan op : operators){
+            //System.out.println("ACTION LIT: "+ action + " OP LIT: " + op.getTrigger().getLiteral().getFunctor());
+            if(op.getTrigger().getLiteral().getFunctor().equalsIgnoreCase(action.getFunctor())){
+                newLiteral = Literal.parseLiteral(action.getFunctor().toLowerCase().replace(op.getLabel().getFunctor().toLowerCase(), ""));
+                //System.out.println("ADDING PLAN LIT: "+ newLiteral.toString());
+                if(action.hasTerm()){
+                    newLiteral.addTerms(action.getTerms());
+                }
+                break;
+            }
+        }
+        PlanBodyImpl body = new PlanBodyImpl(PlanBody.BodyType.action, newLiteral);
         body.add(new PlanBodyImpl(PlanBody.BodyType.achieve, Literal.parseLiteral("act")));
 
         Random r = new Random();
@@ -64,7 +80,7 @@ public class Generator_V2 {
         planLibrary.add(p);
         if(parentLabel != null){
             int size = planLibrary.get(parentLabel).getBody().getPlanSize();
-            planLibrary.get(parentLabel).getBody().add(size-1, new PlanBodyImpl(PlanBody.BodyType.action, plan.getAction(0)));
+            planLibrary.get(parentLabel).getBody().add(size-1, new PlanBodyImpl(PlanBody.BodyType.action, newLiteral));
         }
         if(plan.getIfStatements().size() == 1){
             return recursiveGenerate(plan.getIfStatements().get(0).getPlan(), plan.getIfStatements().get(0).getState(), planLibrary, parentLabel==null?new Pred(label):parentLabel);

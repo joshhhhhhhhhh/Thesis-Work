@@ -136,7 +136,7 @@ public class ErraticVacuumEnv extends Environment {
             }
         }
         addPercept(Literal.parseLiteral("desires(" + Arrays.toString(cleans) + ")"));
-        logger.info("CURRENT PERCEPTS: " + perceptLog);
+        //logger.info("CURRENT PERCEPTS: " + perceptLog);
     }
 
 }

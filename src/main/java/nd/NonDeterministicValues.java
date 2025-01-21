@@ -66,6 +66,17 @@ public class NonDeterministicValues {
                 this.initialBeliefs.add(literal);
             }
         }
+
+        for(Plan op : operators){
+            Literal lit = Literal.parseLiteral(op.getTrigger().getLiteral().getFunctor()+op.getLabel().getFunctor());
+            if(op.getTrigger().getLiteral().hasTerm()){
+                for(Term term : op.getTrigger().getLiteral().getTerms()){
+                    lit.addTerm(term);
+                }
+            }
+            op.getTrigger().setLiteral(lit);
+        }
+
         this.operators = operators;
         this.goalState = new HashSet<Term>(goalState);
         this.actions = setActions();
@@ -125,12 +136,11 @@ public class NonDeterministicValues {
             //System.out.println("VARS: " + tempVariables + " TYPES: " + op.getLabel().getTerms());
             for(Term var : tempAnnots){
                 Literal lit = (Literal)var;
-                if(var.toString().equals(lit.getTerm(0).toString())){
-                    if(!lit.getTerm(2).toString().equals("temp")){
-                        types.add(lit.getTerm(1));
-                        vars.add((VarTerm) lit.getTerm(0));
-                    }
+                if(!lit.getTerm(2).toString().equals("temp")){
+                    types.add(lit.getTerm(1));
+                    vars.add((VarTerm) lit.getTerm(0));
                 }
+
 
 
                 /*if(!tempTypes.get(i).toString().contains("temp")){
@@ -150,15 +160,19 @@ public class NonDeterministicValues {
             for(Map<VarTerm, Term> mapping : allPossibleVarCombinations){
                 if(mapping == null){
                     ret.add(lit);
+                    System.out.println("MAPPING NULL: " + lit);
                 } else {
                     Unifier u = new Unifier();
                     for(VarTerm key : mapping.keySet()){
                         u.bind(key, mapping.get(key));
                     }
                     ret.add((Literal) lit.capply(u));
+                    System.out.println("MAPPING: " + lit + " | " + u);
+
                 }
             }
         }
+        System.out.println("RET: " + ret);
         return ret.stream().toList();
     }
 
@@ -294,9 +308,9 @@ public class NonDeterministicValues {
                         notMandatoryTypes.add(lit.getTerm(1));
                     }
                 }
-                //System.out.println("TYPES: " + notMandatoryTypes);
-                //System.out.println("Mandatory TYpes: " + mandatoryVars);
-                //System.out.println("NonMandatoryTypes: " + notMandatoryVars);
+                //System.out.println("NonMandatoryTypes: " + notMandatoryTypes);
+                //System.out.println("MandatoryVars: " + mandatoryVars);
+                //System.out.println("NonMandatoryVars: " + notMandatoryVars);
 
                 /*for(int i=0; i<tempVariables.size();i++){
                     if(!tempTypes.get(i).toString().contains("temp")){
@@ -308,16 +322,23 @@ public class NonDeterministicValues {
                     //types.add(Literal.parseLiteral(t.toString().replace("temp", "")));
                 }*/
 
-                List<Term> values = action.getTerms();
-                List<Term> allVars = op.getTrigger().getLiteral().getTerms();
                 Unifier unifier = new Unifier();
-                if(values != null){
-                    for(int i=0; i<values.size(); i++){
-                        if(mandatoryVars.contains((VarTerm) allVars.get(i))){
-                            unifier.bind((VarTerm)allVars.get(i), values.get(i));
+
+                if(action.getTerms()!=null){
+                    Iterator<Term> values = action.getTerms().iterator();
+                    List<Term> allVars = op.getTrigger().getLiteral().getTerms();
+
+                    if(values.hasNext()){
+                        for (Term var : allVars) {
+                            //System.out.println("currVar: " + allVars.get(i) + " | " + allVars);
+                            if (mandatoryVars.contains((VarTerm) var)) {
+                                unifier.bind((VarTerm) var, values.next());
+                            }
                         }
                     }
                 }
+
+                //System.out.println("UNIFIER: " + unifier);
                 LogicalFormula context = op.getContext();
                 Term semiUnifiedContext = context.capply(unifier);
 
@@ -333,6 +354,9 @@ public class NonDeterministicValues {
                         contextEvaluated = true;
                     }
                 } else {
+                    //System.out.println("ALLPOSSIBLECOMBINATIOSN: " + allPossibleVarCombinations);
+                    int num = 0;
+
                     for(Map<VarTerm, Term> combination : allPossibleVarCombinations){
                         Unifier tempUnifier = new Unifier();
                         for(VarTerm key : combination.keySet()){
@@ -345,7 +369,14 @@ public class NonDeterministicValues {
                                 //System.out.println(state + " | " + unifiedContext + " | " + t);
                                 unifier.compose(tempUnifier);
                                 contextEvaluated = true;
-                                break;
+                                //System.out.println("TEMP_UNIFIER: " + tempUnifier);
+                                //System.out.println("FINAL_UNIFIER: " + unifier);
+
+                                if(num >= 1){
+                                    System.out.println("VISITED MANY TIMES: " + action + tempUnifier);
+                                }
+                                num=num+1;
+                                //break;
                             }
                         } catch (JasonException e){
                             e.printStackTrace();
@@ -355,7 +386,7 @@ public class NonDeterministicValues {
 
                 if(!contextEvaluated)
                     continue;
-                System.out.println("ACTION: " + action);
+                //System.out.println("ACTION: " + action + " | " + unifier);
 
                 /*
                 List<Term> types = op.getLabel().getAnnots().getAsList().stream().filter(t->!t.toString().contains("source(") && !t.toString().contains("url(")).toList();
@@ -483,6 +514,10 @@ public class NonDeterministicValues {
 
                     curr = curr.getBodyNext();
                 }
+                //System.out.println("INITIAL STATE: " + state);
+                //System.out.println("ACTION: " + action + " | " + unifier);
+                //System.out.println("RESULT : " + results);
+
                 return new ArrayList<>(results);
             }
             return new ArrayList<>();

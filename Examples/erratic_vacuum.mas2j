@@ -1,6 +1,6 @@
 MAS erratic_vacuum {
 
-        environment: nd.ErraticVacuumEnv(5)
+        environment: nd.ErraticVacuumEnv(50)
 
         agents: vacuum3;
         aslSourcePath: "Examples";
